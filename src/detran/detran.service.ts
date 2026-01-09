@@ -1,8 +1,7 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-import { lastValueFrom } from 'rxjs';
+// import { lastValueFrom } from 'rxjs'; // Comentado para não dar erro de "não usado"
 
-// Interface do que esperamos receber (Baseado no seu JSON anterior)
 export interface DadosVeiculo {
   placa: string;
   renavam: string;
@@ -21,15 +20,12 @@ export class DetranService {
     placa: string,
     renavam: string,
   ): Promise<DadosVeiculo> {
-    // URL base que você forneceu (Integrador SP)
-    const apiUrl =
-      'https://integrador.sp.gov.br/wps/portal/integrador/catalogoApis/API/detran-veiculos';
-
-    // TOKEN: Aqui entra a chave que a empresa receberá após o credenciamento
-    const apiToken = process.env.DETRAN_API_TOKEN;
+    // Variáveis comentadas para evitar erro de "unused variable" do ESLint
+    // const apiUrl = 'https://integrador.sp.gov.br/wps/portal/integrador/catalogoApis/API/detran-veiculos';
+    // const apiToken = process.env.DETRAN_API_TOKEN;
 
     try {
-      // TENTATIVA DE CONEXÃO REAL (Comentada até ter o Token)
+      // MODO SIMULAÇÃO (O código real fica comentado abaixo para o futuro)
       /*
       const response = await lastValueFrom(
         this.httpService.get(`${apiUrl}/veiculos/${placa}`, {
@@ -37,22 +33,20 @@ export class DetranService {
           params: { renavam }
         })
       );
-      return response.data; 
+      return response.data;
       */
 
-      // MODO SIMULAÇÃO (Para o sistema funcionar AGORA enquanto aguarda credenciamento)
-      // Simula um delay de rede do governo (importante para UX)
+      // Simula delay de rede (Corrigido parênteses do resolve)
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log(`[DETRAN API] Consultando placa real: ${placa}`);
 
-      // Retorno baseado na estrutura oficial esperada
       return {
         placa: placa.toUpperCase(),
         renavam: renavam,
         marca_modelo: 'VOLVO/FH 540 (DADOS DO DETRAN)',
         ano_fabricacao: 2023,
-        multas_vencidas: 0, // Exemplo: Sem multas
+        multas_vencidas: 0,
         status_licenciamento: 'EM DIA',
         restricoes: [],
       };
