@@ -8,7 +8,7 @@ export class DetranController {
   @Get('consultar')
   async consultar(
     @Query('placa') placa: string,
-    @Query('renavam') renavam: string
+    @Query('renavam') renavam: string,
   ) {
     return this.detranService.consultarVeiculo(placa, renavam);
   }
