@@ -10,6 +10,6 @@ export class DetranController {
     @Query('placa') placa: string,
     @Query('renavam') renavam: string,
   ) {
-    return this.detranService.consultarVeic ulo(placa, renavam);
+    return this.detranService.consultarVeiculo(placa, renavam);
   }
 }

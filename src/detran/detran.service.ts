@@ -1,6 +1,6 @@
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { HttpService } from '@nestjs/axios';
-// import { lastValueFrom } from 'rxjs'; // Comentado para não dar erro de "não usado"
+// import { lastValueFrom } from 'rxjs';
 
 export interface DadosVeiculo {
   placa: string;
@@ -36,7 +36,7 @@ export class DetranService {
       return response.data;
       */
 
-      // Simula delay de rede (Corrigido parênteses do resolve)
+      // Simula delay de rede
       await new Promise((resolve) => setTimeout(resolve, 1500));
 
       console.log(`[DETRAN API] Consultando placa real: ${placa}`);
