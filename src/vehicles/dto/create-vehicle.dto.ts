@@ -5,4 +5,7 @@ export class CreateVehicleDto {
   km_atual: number;
   renavam: string; // Importante para as consultas futuras
   status: string; // 'Ativo', 'Em Oficina', etc.
+  cor: string;
+  combustivel: string;
+  chassi: string;
 }

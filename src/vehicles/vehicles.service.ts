@@ -17,6 +17,9 @@ export interface Vehicle {
   renavam: string;
   status: string;
   data_cadastro: Date;
+  cor: string;
+  combustivel: string;
+  chassi: string;
 }
 
 @Injectable()
@@ -33,6 +36,7 @@ export class VehiclesService implements OnModuleInit {
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
     console.log('Salvando no Supabase:', createVehicleDto);
 
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { data, error } = await this.supabase
       .from('vehicles')
       .insert({
@@ -42,6 +46,9 @@ export class VehiclesService implements OnModuleInit {
         km_atual: createVehicleDto.km_atual,
         renavam: createVehicleDto.renavam,
         status: createVehicleDto.status,
+        cor: createVehicleDto.cor,
+        combustivel: createVehicleDto.combustivel,
+        chassi: createVehicleDto.chassi,
       })
       .select()
       .single();
