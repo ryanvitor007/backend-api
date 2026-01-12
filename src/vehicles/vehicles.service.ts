@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
@@ -31,6 +30,30 @@ export class VehiclesService implements OnModuleInit {
       process.env.SUPABASE_URL ?? '',
       process.env.SUPABASE_KEY ?? '',
     );
+  }
+
+  async remove(id: number): Promise<void> {
+    console.log(`Iniciando exclusão do veículo ID: ${id}`);
+
+    // O Supabase/Postgres irá disparar o 'ON DELETE CASCADE' se configurado no banco,
+    // apagando automaticamente multas e documentos vinculados a este ID.
+    const { error } = await this.supabase
+      .from('vehicles')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Erro ao excluir veículo:', error);
+      // Tratamento para erro de chave estrangeira (caso o CASCADE não esteja configurado)
+      if (error.code === '23503') {
+        throw new Error(
+          'Não é possível excluir: Existem registros (multas/docs) vinculados. Configure "ON DELETE CASCADE" no Supabase.',
+        );
+      }
+      throw new Error(error.message);
+    }
+
+    console.log('Veículo excluído com sucesso.');
   }
 
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {

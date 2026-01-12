@@ -9,4 +9,7 @@ async function bootstrap() {
 
   await app.listen(3001);
 }
-bootstrap();
+bootstrap().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});
