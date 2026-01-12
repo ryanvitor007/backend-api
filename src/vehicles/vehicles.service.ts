@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+/* eslint-disable @typescript-eslint/no-unsafe-call */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
@@ -35,8 +35,7 @@ export class VehiclesService implements OnModuleInit {
   async remove(id: number): Promise<void> {
     console.log(`Iniciando exclusão do veículo ID: ${id}`);
 
-    // O Supabase/Postgres irá disparar o 'ON DELETE CASCADE' se configurado no banco,
-    // apagando automaticamente multas e documentos vinculados a este ID.
+    // O Supabase/Postgres irá disparar o 'ON DELETE CASCADE' se configurado no banco
     const { error } = await this.supabase
       .from('vehicles')
       .delete()
@@ -44,10 +43,10 @@ export class VehiclesService implements OnModuleInit {
 
     if (error) {
       console.error('Erro ao excluir veículo:', error);
-      // Tratamento para erro de chave estrangeira (caso o CASCADE não esteja configurado)
+      // Tratamento para erro de chave estrangeira
       if (error.code === '23503') {
         throw new Error(
-          'Não é possível excluir: Existem registros (multas/docs) vinculados. Configure "ON DELETE CASCADE" no Supabase.',
+          'Não é possível excluir: Existem registros vinculados. Configure "ON DELETE CASCADE" no Supabase.',
         );
       }
       throw new Error(error.message);
@@ -59,7 +58,6 @@ export class VehiclesService implements OnModuleInit {
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
     console.log('Salvando no Supabase:', createVehicleDto);
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
     const { data, error } = await this.supabase
       .from('vehicles')
       .insert({
