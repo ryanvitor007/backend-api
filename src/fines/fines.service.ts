@@ -30,10 +30,10 @@ export class FinesService implements OnModuleInit {
   }
 
   async findAll() {
-    // Busca multas e junta com a placa do veículo
+    // Agora buscamos também o vehicle_plate direto da tabela fines
     const { data, error } = await this.supabase
       .from('fines')
-      .select('*, vehicles(placa, modelo)')
+      .select('*, vehicles(placa, modelo)') // O * já pega o vehicle_plate
       .order('infraction_date', { ascending: false });
 
     if (error) throw new Error(error.message);

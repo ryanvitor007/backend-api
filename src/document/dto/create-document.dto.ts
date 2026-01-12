@@ -1,6 +1,6 @@
 export class CreateDocumentDto {
-  vehicle_id: number;
-  type: string; // 'IPVA', 'Licenciamento', etc.
+  vehicle_id?: number;
+  vehicle_plate?: string; // Novo campo
   ipva_status: string;
   ipva_valor: number;
   ipva_vencimento: string;

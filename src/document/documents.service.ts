@@ -30,11 +30,10 @@ export class DocumentsService implements OnModuleInit {
   }
 
   async findAll() {
-    // Traz os documentos JÁ com os dados do veículo (Placa/Modelo)
-    // Isso garante que só traga documentos de carros cadastrados na frota
-    const { data, error } = await this.supabase
-      .from('documents')
-      .select('*, vehicles(placa, modelo, renavam)');
+    const { data, error } = await this.supabase.from('documents').select(`
+        *,
+        vehicles (placa, modelo, renavam)
+      `); // O * traz a coluna vehicle_plate que criamos
 
     if (error) throw new Error(error.message);
     return data;

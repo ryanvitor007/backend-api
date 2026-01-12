@@ -8,7 +8,7 @@ import { DetranService } from './detran/detran.service';
 import { VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
 import { FinesModule } from './fines/fines.module'; // <--- 1. Importe o Módulo Aqui
-import { DocumentsModule } from './documents/documents.module'; // <--- Importe
+import { DocumentsModule } from './document/documents.module'; // <--- Importe
 
 @Module({
   imports: [

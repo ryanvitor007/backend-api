@@ -1,5 +1,6 @@
 export class CreateFineDto {
-  vehicle_id: number;
+  vehicle_id?: number; // Agora é opcional
+  vehicle_plate?: string; // Novo campo
   driver_name: string;
   infraction_date: string;
   description: string;
