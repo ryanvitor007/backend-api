@@ -3,19 +3,26 @@ import { HttpModule } from '@nestjs/axios';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+
+// Controllers e Services Principais
 import { DetranController } from './detran/detran.controller';
 import { DetranService } from './detran/detran.service';
 import { VehiclesController } from './vehicles/vehicles.controller';
 import { VehiclesService } from './vehicles/vehicles.service';
-import { FinesModule } from './fines/fines.module'; // <--- 1. Importe o Módulo Aqui
-import { DocumentsModule } from './document/documents.module'; // <--- Importe
+
+// Módulos da Aplicação
+import { FinesModule } from './fines/fines.module';
+import { DocumentsModule } from './document/documents.module';
+import { MaintenancesModule } from './maintenances/maintenances.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     HttpModule,
-    FinesModule, // <--- 2. Adicione na lista de imports
-    DocumentsModule, // <--- 3. Adicione o módulo de documentos
+    // Lista de Módulos Registrados
+    FinesModule,
+    DocumentsModule,
+    MaintenancesModule, // <--- 2. ADICIONE NA LISTA AQUI
   ],
   controllers: [AppController, DetranController, VehiclesController],
   providers: [AppService, DetranService, VehiclesService],
