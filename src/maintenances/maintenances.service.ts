@@ -17,8 +17,9 @@ export class MaintenancesService implements OnModuleInit {
     );
   }
 
-  // Criar Manutenção
+  // --- CRIAR MANUTENÇÃO E ATUALIZAR VEÍCULO ---
   async create(dto: CreateMaintenanceDto) {
+    // 1. Insere o registro da manutenção
     const { data, error } = await this.supabase
       .from('maintenances')
       .insert(dto)
@@ -26,10 +27,19 @@ export class MaintenancesService implements OnModuleInit {
       .single();
 
     if (error) throw new Error(error.message);
+
+    // 2. ATUALIZAÇÃO AUTOMÁTICA DA KM DO VEÍCULO
+    // Se veio um ID de veículo e uma KM válida, atualizamos o cadastro do carro
+    if (dto.vehicle_id && dto.km_at_maintenance > 0) {
+      await this.supabase
+        .from('vehicles')
+        .update({ km_atual: dto.km_at_maintenance })
+        .eq('id', dto.vehicle_id);
+    }
+
     return data;
   }
 
-  // Listar Todas
   async findAll() {
     const { data, error } = await this.supabase
       .from('maintenances')
@@ -40,7 +50,6 @@ export class MaintenancesService implements OnModuleInit {
     return data;
   }
 
-  // Dar Baixa (Concluir)
   async complete(id: number) {
     const { data, error } = await this.supabase
       .from('maintenances')
