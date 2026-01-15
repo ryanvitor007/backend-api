@@ -14,6 +14,7 @@ import { VehiclesService } from './vehicles/vehicles.service';
 import { FinesModule } from './fines/fines.module';
 import { DocumentsModule } from './document/documents.module';
 import { MaintenancesModule } from './maintenances/maintenances.module';
+import { IncidentsModule } from './incidents/incidents.module';
 
 @Module({
   imports: [
@@ -22,7 +23,8 @@ import { MaintenancesModule } from './maintenances/maintenances.module';
     // Lista de Módulos Registrados
     FinesModule,
     DocumentsModule,
-    MaintenancesModule, // <--- 2. ADICIONE NA LISTA AQUI
+    MaintenancesModule,
+    IncidentsModule, // <--- 2. ADICIONE NA LISTA AQUI
   ],
   controllers: [AppController, DetranController, VehiclesController],
   providers: [AppService, DetranService, VehiclesService],
