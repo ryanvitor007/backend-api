@@ -16,6 +16,7 @@ import { DocumentsModule } from './document/documents.module';
 import { MaintenancesModule } from './maintenances/maintenances.module';
 import { IncidentsModule } from './incidents/incidents.module';
 import { ReportsModule } from './reports/reports.module';
+import { EmployeesModule } from './employees/employees.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ReportsModule } from './reports/reports.module';
     MaintenancesModule,
     IncidentsModule,
     ReportsModule,
+    EmployeesModule,
   ],
   controllers: [AppController, DetranController, VehiclesController],
   providers: [AppService, DetranService, VehiclesService],
