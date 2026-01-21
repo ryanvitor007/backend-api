@@ -1,11 +1,6 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
-/* eslint-disable @typescript-eslint/no-unsafe-call */
-/* eslint-disable @typescript-eslint/no-unsafe-return */
-
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { CreateVehicleDto } from './dto/create-vehicle.dto';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { SupabaseClient } from '@supabase/supabase-js';
 
 export interface Vehicle {
   id: number;
@@ -21,32 +16,40 @@ export interface Vehicle {
   chassi: string;
 }
 
-@Injectable()
-export class VehiclesService implements OnModuleInit {
-  private supabase: SupabaseClient;
+// Interfaces para tipagem segura do retorno do Supabase (Evita erros de Lint)
+interface SupabaseError {
+  message: string;
+  code: string;
+  details: string;
+  hint: string;
+}
 
-  onModuleInit() {
-    this.supabase = createClient(
-      process.env.SUPABASE_URL ?? '',
-      process.env.SUPABASE_KEY ?? '',
-    );
-  }
+interface SupabaseResponse<T> {
+  data: T | null;
+  error: SupabaseError | null;
+}
+
+@Injectable()
+export class VehiclesService {
+  constructor(
+    @Inject('SUPABASE_CLIENT') private readonly supabase: SupabaseClient,
+  ) {}
 
   async remove(id: number): Promise<void> {
     console.log(`Iniciando exclusão do veículo ID: ${id}`);
 
-    // O Supabase/Postgres irá disparar o 'ON DELETE CASCADE' se configurado no banco
-    const { error } = await this.supabase
+    const response = (await this.supabase
       .from('vehicles')
       .delete()
-      .eq('id', id);
+      .eq('id', id)) as unknown as SupabaseResponse<null>;
+
+    const { error } = response;
 
     if (error) {
       console.error('Erro ao excluir veículo:', error);
-      // Tratamento para erro de chave estrangeira
       if (error.code === '23503') {
         throw new Error(
-          'Não é possível excluir: Existem registros vinculados. Configure "ON DELETE CASCADE" no Supabase.',
+          'Não é possível excluir: Existem registros vinculados (multas, manutenções, etc).',
         );
       }
       throw new Error(error.message);
@@ -58,40 +61,56 @@ export class VehiclesService implements OnModuleInit {
   async create(createVehicleDto: CreateVehicleDto): Promise<Vehicle> {
     console.log('Salvando no Supabase:', createVehicleDto);
 
-    const { data, error } = await this.supabase
+    // Casting para any no payload para evitar erro de tipagem na entrada, se houver discrepância
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const payload: any = {
+      placa: createVehicleDto.placa,
+      modelo: createVehicleDto.modelo,
+      ano: createVehicleDto.ano,
+      km_atual: createVehicleDto.km_atual,
+      renavam: createVehicleDto.renavam,
+      status: createVehicleDto.status,
+      cor: createVehicleDto.cor,
+      combustivel: createVehicleDto.combustivel,
+      chassi: createVehicleDto.chassi,
+    };
+
+    const response = (await this.supabase
       .from('vehicles')
-      .insert({
-        placa: createVehicleDto.placa,
-        modelo: createVehicleDto.modelo,
-        ano: createVehicleDto.ano,
-        km_atual: createVehicleDto.km_atual,
-        renavam: createVehicleDto.renavam,
-        status: createVehicleDto.status,
-        cor: createVehicleDto.cor,
-        combustivel: createVehicleDto.combustivel,
-        chassi: createVehicleDto.chassi,
-      })
+      .insert(payload)
       .select()
-      .single();
+      .single()) as unknown as SupabaseResponse<Vehicle>;
+
+    const { data, error } = response;
 
     if (error) {
       console.error('Erro ao salvar:', error);
       throw new Error('Erro ao salvar veículo no banco de dados');
     }
 
-    return data as Vehicle;
+    if (!data) {
+      throw new Error('Erro: Dados do veículo não retornados após salvar.');
+    }
+
+    return data;
   }
 
   async findAll(): Promise<Vehicle[]> {
-    const { data, error } = await this.supabase
+    // CORREÇÃO DO ERRO: Casting explícito para SupabaseResponse<Vehicle[]>
+    const response = (await this.supabase
       .from('vehicles')
       .select('*')
-      .order('data_cadastro', { ascending: false });
+      .order('id', { ascending: true })) as unknown as SupabaseResponse<
+      Vehicle[]
+    >;
+
+    const { data, error } = response;
 
     if (error) {
+      console.error('Erro ao buscar veículos:', error);
       throw new Error(error.message);
     }
 
-    return (data as Vehicle[]) || [];
+    return data || [];
   }
 }
