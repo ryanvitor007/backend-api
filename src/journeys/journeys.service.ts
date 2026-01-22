@@ -73,12 +73,13 @@ export class JourneysService {
       .eq('id', createJourneyDto.vehicleId);
 
     // --- TRATAMENTO DO CHECKLIST ---
-    const checklistData = createJourneyDto.checklist as {
-      items: Record<string, boolean>;
+    const checklistData = (createJourneyDto.checklist || {}) as {
+      items?: Record<string, boolean>;
       notes?: string;
     };
     const checklistItems = checklistData.items || {};
     const checklistNotes = checklistData.notes || '';
+    const checklistPayload = { items: checklistItems, notes: checklistNotes };
 
     // 2. Registrar o Checklist na tabela própria
     await this.supabase.from('vehicle_checklists').insert({
@@ -117,7 +118,7 @@ export class JourneysService {
           status: 'Pendente',
           priority: 'Alta',
           created_at: new Date().toISOString(),
-          checklist_data: checklistItems,
+          checklist_data: checklistPayload,
         });
 
       if (maintError) {
@@ -214,28 +215,34 @@ export class JourneysService {
       notes: checklistNotes,
     });
 
-    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA (FIM DA JORNADA) ---
+    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA ---
+    // ... código anterior de criação da jornada ...
+
+    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA (INÍCIO) ---
     const hasFailures = Object.values(checklistItems).some(
       (val) => val === false,
     );
 
     if (hasFailures) {
+      // Cria string legível para a descrição
       const failedItemsList = Object.entries(checklistItems)
         .filter(([, status]) => status === false)
         .map(([item]) => item)
         .join(', ');
 
-      const description = `Manutenção Automática (Checklist Final). Itens Reprovados: ${failedItemsList}. Obs: ${checklistNotes}`;
+      const description = `Manutenção Automática (Checklist Inicial). Itens Reprovados: ${failedItemsList}. Obs: ${checklistNotes}`;
 
+      // ATUALIZAÇÃO CRÍTICA: Mapeando para a estrutura do banco (bd.txt)
       await this.supabase.from('maintenances').insert({
         vehicle_id: journey.vehicle_id,
         driver_id: journey.driver_id,
         type: 'Corretiva - Checklist',
         description: description,
         status: 'Pendente',
-        priority: 'Média',
+        priority: 'Alta',
         created_at: new Date().toISOString(),
-        checklist_data: checklistItems,
+        // AQUI ESTÁ A CORREÇÃO: Salvando o JSON na coluna correta
+        checklist_data: checklistData, // Passa o objeto completo { items: {...}, notes: ... } ou apenas checklistItems se preferir só os itens
       });
     }
 
