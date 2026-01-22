@@ -41,11 +41,16 @@ export class JourneysService {
 
   // INICIAR JORNADA
   async create(createJourneyDto: CreateJourneyDto) {
-    console.log('--- INICIANDO NOVA JORNADA (DEBUG) ---');
-    console.log(
-      'Checklist Recebido:',
-      JSON.stringify(createJourneyDto.checklist, null, 2),
-    );
+    console.log('--- PAYLOAD CHEGOU NO SERVICE ---');
+    console.log(JSON.stringify(createJourneyDto, null, 2));
+
+    // TRAVA DE SEGURANÇA: Se o ValidationPipe limpar os dados, isso vai avisar
+    if (!createJourneyDto.driverId || !createJourneyDto.vehicleId) {
+      console.error(
+        'ERRO CRÍTICO: driverId ou vehicleId indefinidos. O DTO pode estar limpando os dados.',
+      );
+      throw new Error('Dados de motorista ou veículo ausentes.');
+    }
 
     // 1. Criar a linha na tabela journeys
     const response = (await this.supabase
@@ -59,12 +64,17 @@ export class JourneysService {
         start_time: new Date().toISOString(),
       })
       .select()
-      .single()) as unknown as SupabaseResponse<JourneyData>;
-
+      .single()) as SupabaseResponse<JourneyData>;
     const { data: journey, error: journeyError } = response;
 
-    if (journeyError) throw new Error(journeyError.message);
-    if (!journey) throw new Error('Erro ao criar jornada');
+    if (journeyError) {
+      console.error('ERRO AO CRIAR JORNADA (DB):', journeyError.message);
+      throw new Error(journeyError.message);
+    }
+
+    if (!journey) throw new Error('Erro desconhecido ao criar jornada');
+
+    // ... (Restante do código: atualização de KM e vehicle_checklists) ...
 
     // --- ATUALIZAÇÃO AUTOMÁTICA DE KM ---
     await this.supabase
@@ -104,7 +114,7 @@ export class JourneysService {
         .map(([item]) => item)
         .join(', ');
 
-      console.log('Criando manutenção para:', failedItemsList); // DEBUG
+      console.log('Criando manutenção para falhas:', failedItemsList);
 
       const description = `Manutenção Automática (Checklist Inicial). Itens Reprovados: ${failedItemsList}. Obs: ${checklistNotes}`;
 
@@ -118,11 +128,17 @@ export class JourneysService {
           status: 'Pendente',
           priority: 'Alta',
           created_at: new Date().toISOString(),
-          checklist_data: checklistPayload,
+          checklist_data: checklistPayload, // JSON correto
+
+          // VALORES PADRÃO PARA EVITAR ERRO DE NOT NULL
+          cost: 0,
+          provider: 'Interno',
         });
 
       if (maintError) {
-        console.error('ERRO AO CRIAR MANUTENÇÃO:', maintError);
+        console.error('ERRO AO SALVAR MANUTENÇÃO:', maintError);
+      } else {
+        console.log('SUCESSO: Manutenção criada no banco de dados!');
       }
     }
 
