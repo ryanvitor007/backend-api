@@ -89,7 +89,7 @@ export class JourneysService {
 
     // --- TRATAMENTO DO CHECKLIST ---
     const checklistData = (createJourneyDto.checklist || {}) as {
-      items?: Record<string, boolean>;
+      items?: Record<string, boolean | string>;
       notes?: string;
     };
     const checklistItemsRaw =
