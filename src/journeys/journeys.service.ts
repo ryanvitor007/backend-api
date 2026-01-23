@@ -41,6 +41,7 @@ export class JourneysService {
 
   // INICIAR JORNADA
   async create(createJourneyDto: CreateJourneyDto) {
+    console.log('BODY RECEBIDO:', JSON.stringify(createJourneyDto));
     console.log(
       'RECEPÇÃO BACKEND:',
       JSON.stringify(createJourneyDto.checklist, null, 2),
