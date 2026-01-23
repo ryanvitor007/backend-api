@@ -43,6 +43,7 @@ export class JourneysService {
   async create(createJourneyDto: CreateJourneyDto) {
     console.log('--- PAYLOAD CHEGOU NO SERVICE ---');
     console.log(JSON.stringify(createJourneyDto, null, 2));
+    console.log('Checklist recebido no service:', createJourneyDto.checklist);
 
     // TRAVA DE SEGURANÇA: Se o ValidationPipe limpar os dados, isso vai avisar
     if (!createJourneyDto.driverId || !createJourneyDto.vehicleId) {
@@ -90,6 +91,7 @@ export class JourneysService {
     const checklistItems = checklistData.items || {};
     const checklistNotes = checklistData.notes || '';
     const checklistPayload = { items: checklistItems, notes: checklistNotes };
+    console.log('Checklist items normalizados:', checklistItems);
 
     // 2. Registrar o Checklist na tabela própria
     await this.supabase.from('vehicle_checklists').insert({

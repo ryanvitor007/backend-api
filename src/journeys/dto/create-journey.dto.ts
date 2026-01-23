@@ -6,7 +6,17 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  ValidateNested,
 } from 'class-validator';
+
+class JourneyChecklistDto {
+  @IsObject({ message: 'Os itens do checklist devem ser um objeto' })
+  items: Record<string, boolean>;
+
+  @IsOptional()
+  @IsString({ message: 'As observações do checklist devem ser texto' })
+  notes?: string;
+}
 
 export class CreateJourneyDto {
   @IsInt({ message: 'O ID do motorista deve ser um número inteiro' })
@@ -28,9 +38,7 @@ export class CreateJourneyDto {
   // Checklist Inicial e obrigatório ao abrir jornada
   @IsOptional()
   @IsObject()
-  @Type(() => Object)
-  checklist?: {
-    items: Record<string, boolean>; // JSON com os itens marcados
-    notes?: string;
-  };
+  @ValidateNested()
+  @Type(() => JourneyChecklistDto)
+  checklist?: JourneyChecklistDto;
 }
