@@ -37,5 +37,6 @@ export class CreateJourneyDto {
   // Checklist Inicial e obrigatório ao abrir jornada
   @IsOptional()
   @IsObject()
+  @Type(() => Object)
   checklist?: any;
 }
