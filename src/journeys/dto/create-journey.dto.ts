@@ -29,8 +29,5 @@ export class CreateJourneyDto {
   @IsOptional()
   @IsObject()
   @Type(() => Object)
-  checklist?: {
-    items: Record<string, boolean>; // JSON com os itens marcados
-    notes?: string;
-  };
+  checklist?: Record<string, unknown>;
 }
