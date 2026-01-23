@@ -1,4 +1,3 @@
-import { Type } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
@@ -28,9 +27,5 @@ export class CreateJourneyDto {
   // Checklist Inicial e obrigatório ao abrir jornada
   @IsOptional()
   @IsObject()
-  @Type(() => Object)
-  checklist?: {
-    items: Record<string, boolean>; // JSON com os itens marcados
-    notes?: string;
-  };
+  checklist?: any;
 }
