@@ -12,6 +12,9 @@ export interface JourneyData {
   status: string;
   start_location?: string;
   start_odometer?: number;
+  block_reason?: string | null;
+  admin_notes?: string | null;
+  authorized_with_risk?: boolean | null;
 }
 
 export interface EventData {
@@ -68,6 +71,8 @@ export class JourneysService {
 
     console.log('Falhas detectadas (hasFailures)?', hasFailures);
 
+    const journeyStatus = hasFailures ? 'pending_approval' : 'active';
+
     // 1. Criar a linha na tabela journeys
     const response = (await this.supabase
       .from('journeys')
@@ -76,7 +81,7 @@ export class JourneysService {
         vehicle_id: createJourneyDto.vehicleId,
         start_location: createJourneyDto.startLocation,
         start_odometer: createJourneyDto.startOdometer,
-        status: 'active',
+        status: journeyStatus,
         start_time: new Date().toISOString(),
       })
       .select()
@@ -112,41 +117,6 @@ export class JourneysService {
       notes: checklistData.notes || '',
     });
 
-    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA ---
-    if (hasFailures) {
-      const failedItemsList = Object.entries(checklistItems)
-        .filter(([, status]) => status === false)
-        .map(([item]) => item)
-        .join(', ');
-
-      console.log('Criando manutenção para itens:', failedItemsList);
-
-      const description = `Manutenção Automática (Checklist Inicial). Itens Reprovados: ${failedItemsList}. Obs: ${checklistData.notes || ''}`;
-
-      const { error: maintError } = await this.supabase
-        .from('maintenances')
-        .insert({
-          vehicle_id: createJourneyDto.vehicleId,
-          driver_id: createJourneyDto.driverId,
-          type: 'Corretiva - Checklist',
-          description: description,
-          status: 'Pendente',
-          priority: 'Alta',
-          created_at: new Date().toISOString(),
-          checklist_data: checklistData, // Salva o objeto completo validado
-
-          // Campos padrão para evitar erro de NOT NULL no banco
-          cost: 0,
-          provider: 'Interno',
-        });
-
-      if (maintError) {
-        console.error('ERRO AO CRIAR MANUTENÇÃO:', maintError);
-      } else {
-        console.log('SUCESSO: Manutenção criada no banco.');
-      }
-    }
-
     // 3. Registrar evento inicial
     await this.supabase.from('journey_events').insert({
       journey_id: journey.id,
@@ -168,6 +138,45 @@ export class JourneysService {
     return response.data;
   }
 
+  async findAllActive() {
+    const response = (await this.supabase
+      .from('journeys')
+      .select('*, driver:drivers(name, photo), vehicle:vehicles(placa, modelo)')
+      .in('status', ['active', 'pending_approval', 'resting', 'meal'])
+      .order('start_time', { ascending: false })) as SupabaseResponse<
+      JourneyData[]
+    >;
+    return response.data;
+  }
+
+  async findByDate(date: string) {
+    const startDate = new Date(`${date}T00:00:00.000Z`);
+    if (Number.isNaN(startDate.getTime())) {
+      throw new Error('Data inválida. Use o formato YYYY-MM-DD.');
+    }
+
+    const endDate = new Date(startDate);
+    endDate.setUTCDate(endDate.getUTCDate() + 1);
+
+    const startIso = startDate.toISOString();
+    const endIso = endDate.toISOString();
+
+    const response = (await this.supabase
+      .from('journeys')
+      .select('*, driver:drivers(name, photo), vehicle:vehicles(placa, modelo)')
+      .or(
+        [
+          `and(status.eq.finished,end_time.gte.${startIso},end_time.lt.${endIso})`,
+          `and(status.eq.cancelled,start_time.gte.${startIso},start_time.lt.${endIso})`,
+        ].join(','),
+      )
+      .order('start_time', { ascending: false })) as SupabaseResponse<
+      JourneyData[]
+    >;
+
+    return response.data;
+  }
+
   async registerEvent(eventDto: CreateJourneyEventDto) {
     const response = (await this.supabase
       .from('journey_events')
@@ -180,6 +189,113 @@ export class JourneysService {
       .select()
       .single()) as SupabaseResponse<EventData>;
     return response.data;
+  }
+
+  async getStatus(id: number) {
+    const response = (await this.supabase
+      .from('journeys')
+      .select('status')
+      .eq('id', id)
+      .single()) as SupabaseResponse<{ status: string }>;
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    return { status: response.data?.status };
+  }
+
+  async authorize(
+    id: number,
+    body: { status: 'active'; adminNotes: string; authorizedWithRisk: boolean },
+  ) {
+    const response = (await this.supabase
+      .from('journeys')
+      .update({
+        status: body.status,
+        admin_notes: body.adminNotes,
+        authorized_with_risk: body.authorizedWithRisk,
+      })
+      .eq('id', id)
+      .select()
+      .single()) as SupabaseResponse<JourneyData>;
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    return response.data;
+  }
+
+  async block(
+    id: number,
+    body: { status: 'cancelled'; blockReason: string; createMaintenance: boolean },
+  ) {
+    const response = (await this.supabase
+      .from('journeys')
+      .update({
+        status: body.status,
+        block_reason: body.blockReason,
+      })
+      .eq('id', id)
+      .select()
+      .single()) as SupabaseResponse<JourneyData>;
+
+    if (response.error) {
+      throw new Error(response.error.message);
+    }
+
+    const journey = response.data;
+
+    if (journey && body.createMaintenance) {
+      const checklistResponse = (await this.supabase
+        .from('vehicle_checklists')
+        .select('items, notes')
+        .eq('journey_id', id)
+        .order('id', { ascending: false })
+        .limit(1)
+        .maybeSingle()) as SupabaseResponse<{
+        items?: Record<string, boolean>;
+        notes?: string;
+      }>;
+
+      const checklistData = {
+        items: checklistResponse.data?.items ?? {},
+        notes: checklistResponse.data?.notes ?? '',
+      };
+
+      const failedItemsList = Object.entries(checklistData.items)
+        .filter(([, status]) => status === false)
+        .map(([item]) => item)
+        .join(', ');
+
+      const descriptionParts = [
+        `Bloqueio de Jornada. Motivo: ${body.blockReason}`,
+      ];
+
+      if (failedItemsList) {
+        descriptionParts.push(`Itens Reprovados: ${failedItemsList}`);
+      }
+
+      if (checklistData.notes) {
+        descriptionParts.push(`Obs: ${checklistData.notes}`);
+      }
+
+      await this.supabase.from('maintenances').insert({
+        vehicle_id: journey.vehicle_id,
+        driver_id: journey.driver_id,
+        type: 'Corretiva - Checklist',
+        description: descriptionParts.join('. '),
+        status: 'Pendente',
+        priority: 'Alta',
+        created_at: new Date().toISOString(),
+        checklist_data: checklistData,
+        cost: 0,
+        provider: 'Interno',
+      });
+    }
+
+    return journey;
   }
 
   async finish(
