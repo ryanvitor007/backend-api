@@ -6,7 +6,19 @@ import {
   IsOptional,
   IsString,
   IsNumber,
+  ValidateNested,
 } from 'class-validator';
+
+// 1. Criação do DTO específico para o objeto aninhado
+export class ChecklistDto {
+  @IsOptional()
+  @IsObject()
+  items?: Record<string, boolean>;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
 
 export class CreateJourneyDto {
   @IsInt({ message: 'O ID do motorista deve ser um número inteiro' })
@@ -25,12 +37,9 @@ export class CreateJourneyDto {
   @IsNotEmpty()
   startOdometer: number;
 
-  // Checklist Inicial (Obrigatório validação de Objeto)
+  // 2. Uso do ValidateNested para blindar o objeto contra o whitelist
   @IsOptional()
-  @IsObject()
-  @Type(() => Object)
-  checklist?: {
-    items: Record<string, boolean>;
-    notes?: string;
-  };
+  @ValidateNested()
+  @Type(() => ChecklistDto)
+  checklist?: ChecklistDto;
 }
