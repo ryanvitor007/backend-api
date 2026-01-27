@@ -3,7 +3,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
 
-// Interfaces exportadas
+// Interfaces
 export interface JourneyData {
   id: number;
   driver_id: number;
@@ -23,9 +23,9 @@ export interface EventData {
 
 interface SupabaseError {
   message: string;
-  details: string;
-  hint: string;
-  code: string;
+  details?: string;
+  hint?: string;
+  code?: string;
 }
 
 interface SupabaseResponse<T> {
@@ -41,21 +41,14 @@ export class JourneysService {
 
   // INICIAR JORNADA
   async create(createJourneyDto: CreateJourneyDto) {
-    console.log('BODY RECEBIDO:', JSON.stringify(createJourneyDto));
-    console.log(
-      'RECEPÇÃO BACKEND:',
-      JSON.stringify(createJourneyDto.checklist, null, 2),
-    );
-    console.log('--- PAYLOAD CHEGOU NO SERVICE ---');
-    console.log(JSON.stringify(createJourneyDto, null, 2));
-    console.log('Checklist recebido no service:', createJourneyDto.checklist);
+    console.log('--- [DEBUG] INICIANDO JORNADA ---');
+    console.log('Payload:', JSON.stringify(createJourneyDto, null, 2));
 
-    // TRAVA DE SEGURANÇA: Se o ValidationPipe limpar os dados, isso vai avisar
+    // Validação Manual de Segurança
     if (!createJourneyDto.driverId || !createJourneyDto.vehicleId) {
-      console.error(
-        'ERRO CRÍTICO: driverId ou vehicleId indefinidos. O DTO pode estar limpando os dados.',
+      throw new Error(
+        'Dados incompletos: driverId e vehicleId são obrigatórios.',
       );
-      throw new Error('Dados de motorista ou veículo ausentes.');
     }
 
     // 1. Criar a linha na tabela journeys
@@ -70,45 +63,29 @@ export class JourneysService {
         start_time: new Date().toISOString(),
       })
       .select()
-      .single()) as SupabaseResponse<JourneyData>;
+      .single()) as unknown as SupabaseResponse<JourneyData>;
+
     const { data: journey, error: journeyError } = response;
 
     if (journeyError) {
-      console.error('ERRO AO CRIAR JORNADA (DB):', journeyError.message);
+      console.error('Erro ao criar jornada:', journeyError);
       throw new Error(journeyError.message);
     }
-
     if (!journey) throw new Error('Erro desconhecido ao criar jornada');
 
-    // ... (Restante do código: atualização de KM e vehicle_checklists) ...
-
-    // --- ATUALIZAÇÃO AUTOMÁTICA DE KM ---
+    // Atualiza KM Veículo
     await this.supabase
       .from('vehicles')
       .update({ km_atual: createJourneyDto.startOdometer })
       .eq('id', createJourneyDto.vehicleId);
 
-    // --- TRATAMENTO DO CHECKLIST ---
-    const checklistData = (createJourneyDto.checklist || {}) as {
-      items?: Record<string, boolean | string>;
-      notes?: string;
+    // TRATAMENTO DO CHECKLIST
+    const checklistData: { items: Record<string, boolean>; notes?: string } = {
+      items: createJourneyDto.checklist?.items ?? {},
+      notes: createJourneyDto.checklist?.notes ?? '',
     };
-    const checklistItemsRaw =
-      checklistData.items &&
-      typeof checklistData.items === 'object' &&
-      !Array.isArray(checklistData.items)
-        ? checklistData.items
-        : {};
-    const checklistItems = Object.fromEntries(
-      Object.entries(checklistItemsRaw).map(([key, value]) => {
-        if (value === 'false') return [key, false];
-        if (value === 'true') return [key, true];
-        return [key, value];
-      }),
-    );
-    const checklistNotes = checklistData.notes || '';
-    const checklistPayload = { items: checklistItems, notes: checklistNotes };
-    console.log('Checklist items normalizados:', checklistItems);
+    const checklistItems = checklistData.items;
+    const checklistNotes = checklistData.notes ?? '';
 
     // 2. Registrar o Checklist na tabela própria
     await this.supabase.from('vehicle_checklists').insert({
@@ -125,18 +102,17 @@ export class JourneysService {
       (val) => val === false,
     );
 
-    console.log('Tem itens reprovados?', hasFailures); // DEBUG
-
     if (hasFailures) {
+      console.log('>>> FALHAS DETECTADAS. GERANDO MANUTENÇÃO...');
+
       const failedItemsList = Object.entries(checklistItems)
         .filter(([, status]) => status === false)
         .map(([item]) => item)
         .join(', ');
 
-      console.log('Criando manutenção para falhas:', failedItemsList);
-
       const description = `Manutenção Automática (Checklist Inicial). Itens Reprovados: ${failedItemsList}. Obs: ${checklistNotes}`;
 
+      // Inserção da Manutenção
       const { error: maintError } = await this.supabase
         .from('maintenances')
         .insert({
@@ -147,21 +123,21 @@ export class JourneysService {
           status: 'Pendente',
           priority: 'Alta',
           created_at: new Date().toISOString(),
-          checklist_data: checklistPayload, // JSON correto
+          checklist_data: checklistData, // GRAVA O JSON AQUI
 
-          // VALORES PADRÃO PARA EVITAR ERRO DE NOT NULL
+          // VALORES PADRÃO (Para evitar erro de NOT NULL no banco)
           cost: 0,
           provider: 'Interno',
         });
 
       if (maintError) {
-        console.error('ERRO AO SALVAR MANUTENÇÃO:', maintError);
+        console.error('!!! ERRO AO SALVAR MANUTENÇÃO !!!', maintError);
       } else {
-        console.log('SUCESSO: Manutenção criada no banco de dados!');
+        console.log('>>> SUCESSO: Manutenção criada.');
       }
     }
 
-    // 3. Registrar evento inicial
+    // 3. Registrar evento
     await this.supabase.from('journey_events').insert({
       journey_id: journey.id,
       type: 'start_journey',
@@ -171,7 +147,7 @@ export class JourneysService {
     return journey;
   }
 
-  // ... (Mantenha findActive e registerEvent iguais) ...
+  // ... (Mantenha o restante do arquivo igual) ...
   async findActive(driverId: number) {
     const response = (await this.supabase
       .from('journeys')
@@ -179,9 +155,7 @@ export class JourneysService {
       .eq('driver_id', driverId)
       .eq('status', 'active')
       .maybeSingle()) as SupabaseResponse<JourneyData>;
-    const { data, error } = response;
-    if (error) throw new Error(error.message);
-    return data;
+    return response.data;
   }
 
   async registerEvent(eventDto: CreateJourneyEventDto) {
@@ -194,22 +168,18 @@ export class JourneysService {
         timestamp: eventDto.timestamp || new Date().toISOString(),
       })
       .select()
-      .single()) as unknown as SupabaseResponse<EventData>;
-    const { data, error } = response;
-    if (error) throw new Error(error.message);
-    return data;
+      .single()) as SupabaseResponse<EventData>;
+    return response.data;
   }
 
-  // ENCERRAR JORNADA
   async finish(
     id: number,
     endData: {
       endLocation: string;
       endOdometer: number;
-      checklist: unknown;
+      checklist?: { items?: Record<string, boolean>; notes?: string };
     },
   ) {
-    // 1. Atualiza Jornada
     const response = (await this.supabase
       .from('journeys')
       .update({
@@ -220,74 +190,40 @@ export class JourneysService {
       })
       .eq('id', id)
       .select()
-      .single()) as unknown as SupabaseResponse<JourneyData>;
+      .single()) as SupabaseResponse<JourneyData>;
 
-    const { data: journey, error } = response;
+    const journey = response.data as JourneyData;
 
-    if (error) throw new Error(error.message);
-    if (!journey) throw new Error('Erro ao finalizar jornada');
-
-    // --- ATUALIZAÇÃO AUTOMÁTICA DE KM ---
-    await this.supabase
-      .from('vehicles')
-      .update({ km_atual: endData.endOdometer })
-      .eq('id', journey.vehicle_id);
-
-    // 2. Salva Checklist Final
-    const checklistData = (endData.checklist || {}) as {
-      items?: Record<string, boolean>;
-      notes?: string;
+    const checklistData: { items: Record<string, boolean>; notes?: string } = {
+      items: endData.checklist?.items ?? {},
+      notes: endData.checklist?.notes ?? '',
     };
-    const checklistItems = checklistData.items || {};
-    const checklistNotes = checklistData.notes || '';
+    const checklistItems = checklistData.items;
 
-    await this.supabase.from('vehicle_checklists').insert({
-      journey_id: id,
-      driver_id: journey.driver_id,
-      vehicle_id: journey.vehicle_id,
-      type: 'end',
-      items: checklistItems,
-      notes: checklistNotes,
-    });
-
-    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA ---
-    // ... código anterior de criação da jornada ...
-
-    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA (INÍCIO) ---
+    // --- LÓGICA DE MANUTENÇÃO AUTOMÁTICA (FINAL) ---
     const hasFailures = Object.values(checklistItems).some(
       (val) => val === false,
     );
 
     if (hasFailures) {
-      // Cria string legível para a descrição
       const failedItemsList = Object.entries(checklistItems)
         .filter(([, status]) => status === false)
         .map(([item]) => item)
         .join(', ');
 
-      const description = `Manutenção Automática (Checklist Inicial). Itens Reprovados: ${failedItemsList}. Obs: ${checklistNotes}`;
-
-      // ATUALIZAÇÃO CRÍTICA: Mapeando para a estrutura do banco (bd.txt)
       await this.supabase.from('maintenances').insert({
         vehicle_id: journey.vehicle_id,
         driver_id: journey.driver_id,
         type: 'Corretiva - Checklist',
-        description: description,
+        description: `Manutenção Automática (Final). Reprovados: ${failedItemsList}`,
         status: 'Pendente',
-        priority: 'Alta',
+        priority: 'Média',
         created_at: new Date().toISOString(),
-        // AQUI ESTÁ A CORREÇÃO: Salvando o JSON na coluna correta
-        checklist_data: checklistData, // Passa o objeto completo { items: {...}, notes: ... } ou apenas checklistItems se preferir só os itens
+        checklist_data: checklistData,
+        cost: 0,
+        provider: 'Interno',
       });
     }
-
-    // 3. Evento de fim
-    await this.supabase.from('journey_events').insert({
-      journey_id: id,
-      type: 'end_journey',
-      location: endData.endLocation,
-    });
-
     return journey;
   }
 }

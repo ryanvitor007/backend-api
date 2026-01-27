@@ -1,19 +1,20 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { ValidationPipe } from '@nestjs/common'; // <--- IMPORTANTE
+import { ValidationPipe } from '@nestjs/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Prefixo global da API
   app.setGlobalPrefix('api');
 
-  // Ativa validação global (Essencial para o DTO funcionar)
+  // ATIVA A VALIDAÇÃO GLOBAL
+  // Transform: true converte os tipos automaticamente
+  // Whitelist: true remove campos perigosos que não estão no DTO
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Remove campos que não estão no DTO
+      whitelist: true,
       forbidNonWhitelisted: false,
-      transform: true, // Transforma os dados conforme o DTO (ex: @Type)
+      transform: true,
     }),
   );
 
