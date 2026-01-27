@@ -24,11 +24,13 @@ export class JourneysController {
   @Get('monitoring')
   findMonitoring() {
     return this.journeysService.findAllMonitoring();
+    return this.journeysService.findAllActive();
   }
 
   @Get('history')
   findHistory(@Query('date') date: string) {
     return this.journeysService.findHistoryByDate(date);
+    return this.journeysService.findByDate(date);
   }
 
   @Get(':id/status')
