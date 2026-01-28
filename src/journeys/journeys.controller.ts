@@ -40,6 +40,7 @@ export class JourneysController {
 
   @Post('events')
   registerEvent(@Body() eventDto: CreateJourneyEventDto) {
+    console.log('--- EVENT RECEBIDO NO CONTROLLER ---', eventDto);
     return this.journeysService.registerEvent(eventDto);
   }
 
