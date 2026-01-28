@@ -1,4 +1,3 @@
-import { IsIn, IsNotEmpty, IsString } from 'class-validator';
 import { IsBoolean, IsIn, IsNotEmpty, IsString } from 'class-validator';
 
 export class AuthorizeJourneyDto {
