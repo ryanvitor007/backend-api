@@ -285,6 +285,10 @@ export class JourneysService {
         end_meal: 'active',
         stop_wait: 'resting',
         start_wait: 'resting',
+        stop: 'resting',
+        resume: 'active',
+        start_journey: 'active',
+        meal: 'meal',
       };
 
       const nextStatus = statusByEvent[eventDto.type];
@@ -293,6 +297,7 @@ export class JourneysService {
         console.log(
           `Atualizando status da jornada ${eventDto.journeyId} para ${nextStatus}`,
         );
+        console.log('Payload de status:', { status: nextStatus });
         const statusUpdate = (await this.supabase
           .from('journeys')
           .update({ status: nextStatus })
@@ -305,6 +310,12 @@ export class JourneysService {
         }
       }
 
+      console.log('Registrando evento de jornada:', {
+        journey_id: eventDto.journeyId,
+        type: eventDto.type,
+        location: eventDto.location,
+        timestamp: eventDto.timestamp || new Date().toISOString(),
+      });
       const response = (await this.supabase
         .from('journey_events')
         .insert({
@@ -450,6 +461,14 @@ export class JourneysService {
           descriptionParts.push(`Obs: ${checklistData.notes}`);
         }
 
+        console.log('Criando manutenção de bloqueio:', {
+          vehicle_id: journey.vehicle_id,
+          driver_id: journey.driver_id,
+          type: 'Corretiva - Bloqueio',
+          status: 'Pendente',
+          priority: 'Alta',
+          checklist_data: checklistData,
+        });
         await this.supabase.from('maintenances').insert({
           vehicle_id: journey.vehicle_id,
           driver_id: journey.driver_id,
