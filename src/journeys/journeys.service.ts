@@ -71,6 +71,15 @@ export class JourneysService {
       console.log('Falhas detectadas (hasFailures)?', hasFailures);
 
       const journeyStatus = hasFailures ? 'pending_approval' : 'active';
+      const failedItems = Object.entries(checklistItems)
+        .filter(([, status]) => status === false)
+        .map(([item]) => item);
+      const blockReason = hasFailures
+        ? JSON.stringify({
+            failedItems,
+            notes: checklistData.notes || '',
+          })
+        : null;
 
       // 1. Criar a linha na tabela journeys
       const response = (await this.supabase
@@ -81,6 +90,7 @@ export class JourneysService {
           start_location: createJourneyDto.startLocation,
           start_odometer: createJourneyDto.startOdometer,
           status: journeyStatus,
+          block_reason: blockReason,
           start_time: new Date().toISOString(),
         })
         .select()
@@ -173,9 +183,7 @@ export class JourneysService {
       return response.data ?? [];
     } catch (error) {
       console.error('Erro ao buscar jornadas para monitoramento:', error);
-      throw error instanceof Error
-        ? error
-        : new Error('Erro ao buscar jornadas para monitoramento.');
+      return [];
     }
   }
 
@@ -318,9 +326,9 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .update({
-          status: body.status,
+          status: 'active',
           admin_notes: body.adminNotes,
-          authorized_with_risk: body.authorizedWithRisk,
+          authorized_with_risk: true,
         })
         .eq('id', id)
         .select()
