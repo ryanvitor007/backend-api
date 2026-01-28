@@ -71,6 +71,15 @@ export class JourneysService {
       console.log('Falhas detectadas (hasFailures)?', hasFailures);
 
       const journeyStatus = hasFailures ? 'pending_approval' : 'active';
+      const failedItems = Object.entries(checklistItems)
+        .filter(([, status]) => status === false)
+        .map(([item]) => item);
+      const blockReason = hasFailures
+        ? JSON.stringify({
+            failedItems,
+            notes: checklistData.notes || '',
+          })
+        : null;
 
       // 1. Criar a linha na tabela journeys
       const response = (await this.supabase
@@ -81,6 +90,7 @@ export class JourneysService {
           start_location: createJourneyDto.startLocation,
           start_odometer: createJourneyDto.startOdometer,
           status: journeyStatus,
+          block_reason: blockReason,
           start_time: new Date().toISOString(),
         })
         .select()
@@ -173,9 +183,7 @@ export class JourneysService {
       return response.data ?? [];
     } catch (error) {
       console.error('Erro ao buscar jornadas para monitoramento:', error);
-      throw error instanceof Error
-        ? error
-        : new Error('Erro ao buscar jornadas para monitoramento.');
+      return [];
     }
   }
 
@@ -261,6 +269,42 @@ export class JourneysService {
 
   async registerEvent(eventDto: CreateJourneyEventDto) {
     try {
+      console.log('--- EVENT PAYLOAD RECEBIDO ---', eventDto);
+
+      if (!eventDto?.journeyId) {
+        console.error('journeyId ausente no payload de evento.');
+        throw new Error(
+          'journeyId é obrigatório para registrar eventos de jornada.',
+        );
+      }
+
+      const statusByEvent: Record<CreateJourneyEventDto['type'], string> = {
+        start_rest: 'resting',
+        end_rest: 'active',
+        start_meal: 'meal',
+        end_meal: 'active',
+        stop_wait: 'resting',
+        start_wait: 'resting',
+      };
+
+      const nextStatus = statusByEvent[eventDto.type];
+
+      if (nextStatus) {
+        console.log(
+          `Atualizando status da jornada ${eventDto.journeyId} para ${nextStatus}`,
+        );
+        const statusUpdate = (await this.supabase
+          .from('journeys')
+          .update({ status: nextStatus })
+          .eq('id', eventDto.journeyId)
+          .select('id')
+          .single()) as SupabaseResponse<{ id: number }>;
+
+        if (statusUpdate.error) {
+          throw new Error(statusUpdate.error.message);
+        }
+      }
+
       const response = (await this.supabase
         .from('journey_events')
         .insert({
@@ -318,9 +362,9 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .update({
-          status: body.status,
+          status: 'active',
           admin_notes: body.adminNotes,
-          authorized_with_risk: body.authorizedWithRisk,
+          authorized_with_risk: true,
         })
         .eq('id', id)
         .select()
@@ -409,7 +453,7 @@ export class JourneysService {
         await this.supabase.from('maintenances').insert({
           vehicle_id: journey.vehicle_id,
           driver_id: journey.driver_id,
-          type: 'Corretiva - Checklist',
+          type: 'Corretiva - Bloqueio',
           description: descriptionParts.join('. '),
           status: 'Pendente',
           priority: 'Alta',
