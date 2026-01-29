@@ -20,4 +20,9 @@ export class MaintenancesController {
   complete(@Param('id') id: string) {
     return this.service.complete(+id);
   }
+
+  @Patch(':id/resolve')
+  resolve(@Param('id') id: string) {
+    return this.service.resolve(+id);
+  }
 }

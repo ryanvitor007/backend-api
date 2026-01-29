@@ -20,9 +20,25 @@ export class MaintenancesService implements OnModuleInit {
   // --- CRIAR MANUTENÇÃO E ATUALIZAR VEÍCULO ---
   async create(dto: CreateMaintenanceDto) {
     // 1. Insere o registro da manutenção
+    const payload = {
+      vehicle_id: dto.vehicle_id,
+      driver_id: dto.driver_id,
+      vehicle_plate: dto.vehicle_plate,
+      vehicle_model: dto.vehicle_model,
+      type: dto.type,
+      description: dto.description,
+      scheduled_date: dto.scheduled_date,
+      cost: dto.cost,
+      status: dto.status,
+      provider: dto.provider,
+      km_at_maintenance: dto.km_at_maintenance,
+      invoice_url: dto.invoice_url,
+      checklist_data: dto.checklist_data,
+    };
+
     const { data, error } = await this.supabase
       .from('maintenances')
-      .insert(dto)
+      .insert(payload)
       .select()
       .single();
 
@@ -37,6 +53,21 @@ export class MaintenancesService implements OnModuleInit {
         .eq('id', dto.vehicle_id);
     }
 
+    return data;
+  }
+
+  async resolve(id: number) {
+    const { data, error } = await this.supabase
+      .from('maintenances')
+      .update({
+        status: 'Concluída',
+        completed_date: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
     return data;
   }
 
