@@ -1,5 +1,4 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
@@ -46,10 +45,15 @@ export class MaintenancesService implements OnModuleInit {
 
     // 2. ATUALIZAÇÃO AUTOMÁTICA DA KM DO VEÍCULO
     // Se veio um ID de veículo e uma KM válida, atualizamos o cadastro do carro
-    if (dto.vehicle_id && dto.km_at_maintenance > 0) {
+    const kmAtMaintenance = dto.km_at_maintenance;
+    if (
+      dto.vehicle_id &&
+      typeof kmAtMaintenance === 'number' &&
+      kmAtMaintenance > 0
+    ) {
       await this.supabase
         .from('vehicles')
-        .update({ km_atual: dto.km_at_maintenance })
+        .update({ km_atual: kmAtMaintenance })
         .eq('id', dto.vehicle_id);
     }
 
