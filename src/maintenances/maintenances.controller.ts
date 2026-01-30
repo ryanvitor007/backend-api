@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Patch,
+  Post,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
