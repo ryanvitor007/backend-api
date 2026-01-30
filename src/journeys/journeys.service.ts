@@ -381,10 +381,7 @@ export class JourneysService {
     }
   }
 
-  async authorize(
-    id: number,
-    body: UpdateJourneyStatusDto,
-  ) {
+  async authorize(id: number, body: UpdateJourneyStatusDto) {
     try {
       const response = (await this.supabase
         .from('journeys')
@@ -414,10 +411,7 @@ export class JourneysService {
     }
   }
 
-  async block(
-    id: number,
-    body: UpdateJourneyStatusDto,
-  ) {
+  async block(id: number, body: UpdateJourneyStatusDto) {
     try {
       const journeyResponse = (await this.supabase
         .from('journeys')
