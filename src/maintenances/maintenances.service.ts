@@ -4,6 +4,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
+import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
 @Injectable()
 export class MaintenancesService implements OnModuleInit {
@@ -92,6 +93,39 @@ export class MaintenancesService implements OnModuleInit {
         status: 'Concluída',
         completed_date: new Date().toISOString(),
       })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async update(id: number, updateDto: UpdateMaintenanceDto) {
+    const payload: Record<string, unknown> = { ...updateDto };
+
+    if (updateDto.status === 'Concluída' && !updateDto.completed_date) {
+      payload.completed_date = new Date();
+    }
+
+    if (payload.completed_date instanceof Date) {
+      payload.completed_date = payload.completed_date.toISOString();
+    }
+
+    if (typeof updateDto.cost === 'string') {
+      const parsedCost = Number(updateDto.cost);
+      if (!Number.isNaN(parsedCost)) {
+        payload.cost = parsedCost;
+      }
+    }
+
+    const cleanedPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined),
+    );
+
+    const { data, error } = await this.supabase
+      .from('maintenances')
+      .update(cleanedPayload)
       .eq('id', id)
       .select()
       .single();
