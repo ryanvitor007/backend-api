@@ -1,4 +1,4 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, Logger } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
@@ -185,11 +185,11 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca)',
+          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca)',
         )
         .in('status', ['active', 'pending_approval', 'resting', 'meal'])
         .order('start_time', { ascending: false })) as SupabaseResponse<
-        JourneyData[]
+        JourneyWithChecklist[]
       >;
 
       if (response.error) {
@@ -449,30 +449,42 @@ export class JourneysService {
         throw new Error('Jornada não encontrada.');
       }
 
-      if (body.createMaintenance === true) {
-        const checklistData = journey.checklist?.[0] || {};
-        const checklistItems = checklistData.items ?? {};
-        const failedItemsList = Object.entries(checklistItems)
-          .filter(([, status]) => status === false)
-          .map(([item]) => item)
-          .join(', ');
-        const failureDescription = failedItemsList
-          ? failedItemsList
-          : 'Nenhum item identificado';
+      const checklistData = journey.checklist?.[0] ?? null;
+      const maintenancePayload = {
+        type: 'Corretiva - Bloqueio',
+        status: 'Pendente',
+        checklist_data: checklistData,
+        driver_id: journey.driver_id,
+        vehicle_id: journey.vehicle_id,
+      };
 
-        const blockReason = body.blockReason ?? 'Motivo não informado';
-        const description = `Bloqueio de Segurança: ${blockReason}. Falhas: ${failureDescription}`;
+      Logger.log(
+        `Inserindo manutenção de bloqueio para jornada ${journey.id}`,
+        'JourneysService',
+      );
+      Logger.log(
+        JSON.stringify(maintenancePayload),
+        'JourneysService',
+      );
 
-        await this.supabase.from('maintenances').insert({
-          vehicle_id: updatedJourney.vehicle_id,
-          driver_id: updatedJourney.driver_id,
-          type: 'Corretiva - Bloqueio',
-          description,
-          status: 'Pendente',
-          priority: 'Crítica',
-          checklist_data: checklistData,
-        });
+      const maintenanceResponse = await this.supabase
+        .from('maintenances')
+        .insert(maintenancePayload)
+        .select()
+        .single();
+
+      if (maintenanceResponse.error) {
+        Logger.log(
+          `Erro ao inserir manutenção de bloqueio: ${maintenanceResponse.error.message}`,
+          'JourneysService',
+        );
+        throw new Error(maintenanceResponse.error.message);
       }
+
+      Logger.log(
+        `Manutenção de bloqueio inserida com sucesso para jornada ${journey.id}`,
+        'JourneysService',
+      );
 
       return updatedJourney;
     } catch (error) {
