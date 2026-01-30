@@ -3,6 +3,8 @@
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import type { Express } from 'express';
+import path from 'path';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
 import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
@@ -101,7 +103,11 @@ export class MaintenancesService implements OnModuleInit {
     return data;
   }
 
-  async update(id: number, updateDto: UpdateMaintenanceDto) {
+  async update(
+    id: number,
+    updateDto: UpdateMaintenanceDto,
+    file?: Express.Multer.File,
+  ) {
     const payload: Record<string, unknown> = { ...updateDto };
 
     if (updateDto.status === 'Concluída' && !updateDto.completed_date) {
@@ -116,6 +122,28 @@ export class MaintenancesService implements OnModuleInit {
       const parsedCost = Number(updateDto.cost);
       if (!Number.isNaN(parsedCost)) {
         payload.cost = parsedCost;
+      }
+    }
+
+    if (file) {
+      const extension = path.extname(file.originalname);
+      const fileName = `maintenance_${id}_${Date.now()}${extension}`;
+      const { error: uploadError } = await this.supabase.storage
+        .from('invoices')
+        .upload(fileName, file.buffer, {
+          contentType: file.mimetype,
+        });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      const { data: publicData } = this.supabase.storage
+        .from('invoices')
+        .getPublicUrl(fileName);
+
+      if (publicData?.publicUrl) {
+        payload.invoice_url = publicData.publicUrl;
       }
     }
 
