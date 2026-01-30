@@ -2,8 +2,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 
 import { Injectable, OnModuleInit } from '@nestjs/common';
+import { extname } from 'path';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
+import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
 @Injectable()
 export class MaintenancesService implements OnModuleInit {
@@ -92,6 +94,62 @@ export class MaintenancesService implements OnModuleInit {
         status: 'Concluída',
         completed_date: new Date().toISOString(),
       })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw new Error(error.message);
+    return data;
+  }
+
+  async update(
+    id: number,
+    updateDto: UpdateMaintenanceDto,
+    file?: Express.Multer.File,
+  ) {
+    const payload: Record<string, unknown> = { ...updateDto };
+
+    if (updateDto.status === 'Concluída' && !updateDto.completed_date) {
+      payload.completed_date = new Date();
+    }
+
+    if (payload.completed_date instanceof Date) {
+      payload.completed_date = payload.completed_date.toISOString();
+    }
+
+    if (typeof updateDto.cost === 'string') {
+      const parsedCost = Number(updateDto.cost);
+      if (!Number.isNaN(parsedCost)) {
+        payload.cost = parsedCost;
+      }
+    }
+
+    if (file) {
+      const extension = extname(file.originalname || '');
+      const filePath = `maintenance_${id}_${Date.now()}${extension}`;
+      const { error: uploadError } = await this.supabase.storage
+        .from('invoices')
+        .upload(filePath, file.buffer, {
+          contentType: file.mimetype,
+          upsert: true,
+        });
+
+      if (uploadError) throw new Error(uploadError.message);
+
+      const { data: publicUrlData } = this.supabase.storage
+        .from('invoices')
+        .getPublicUrl(filePath);
+
+      payload.invoice_url = publicUrlData.publicUrl;
+    }
+
+    const cleanedPayload = Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined),
+    );
+
+    const { data, error } = await this.supabase
+      .from('maintenances')
+      .update(cleanedPayload)
       .eq('id', id)
       .select()
       .single();

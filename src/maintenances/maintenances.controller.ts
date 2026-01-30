@@ -1,6 +1,17 @@
-import { Controller, Get, Post, Patch, Param, Body } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Patch,
+  Post,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { MaintenancesService } from './maintenances.service';
 import { CreateMaintenanceDto } from './dto/create-maintenance.dto';
+import { UpdateMaintenanceDto } from './dto/update-maintenance.dto';
 
 @Controller('maintenances')
 export class MaintenancesController {
@@ -24,5 +35,15 @@ export class MaintenancesController {
   @Patch(':id/resolve')
   resolve(@Param('id') id: string) {
     return this.service.resolve(+id);
+  }
+
+  @Patch(':id')
+  @UseInterceptors(FileInterceptor('file'))
+  update(
+    @Param('id') id: string,
+    @Body() dto: UpdateMaintenanceDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    return this.service.update(+id, dto, file);
   }
 }
