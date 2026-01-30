@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
+import { UpdateJourneyStatusDto } from './dto/update-journey-status.dto';
 
 // Interfaces
 export interface JourneyData {
@@ -22,6 +23,21 @@ export interface EventData {
   journey_id: number;
   type: string;
   timestamp: string;
+}
+
+interface VehicleChecklistData {
+  id?: number;
+  journey_id?: number;
+  driver_id?: number;
+  vehicle_id?: number;
+  type?: string;
+  items?: Record<string, boolean>;
+  notes?: string;
+  created_at?: string;
+}
+
+interface JourneyWithChecklist extends JourneyData {
+  checklist?: VehicleChecklistData[];
 }
 
 interface SupabaseError {
@@ -367,14 +383,14 @@ export class JourneysService {
 
   async authorize(
     id: number,
-    body: { status: 'active'; adminNotes: string; authorizedWithRisk: boolean },
+    body: UpdateJourneyStatusDto,
   ) {
     try {
       const response = (await this.supabase
         .from('journeys')
         .update({
           status: 'active',
-          admin_notes: body.adminNotes,
+          admin_notes: body.adminNotes ?? null,
           authorized_with_risk: true,
         })
         .eq('id', id)
@@ -400,90 +416,71 @@ export class JourneysService {
 
   async block(
     id: number,
-    body: {
-      status: 'cancelled';
-      blockReason: string;
-      createMaintenance: boolean;
-    },
+    body: UpdateJourneyStatusDto,
   ) {
     try {
-      const response = (await this.supabase
+      const journeyResponse = (await this.supabase
         .from('journeys')
-        .update({
-          status: body.status,
-          block_reason: body.blockReason,
-        })
+        .select('*, checklist:vehicle_checklists(*)')
         .eq('id', id)
-        .select()
-        .single()) as SupabaseResponse<JourneyData>;
+        .single()) as SupabaseResponse<JourneyWithChecklist>;
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (journeyResponse.error) {
+        throw new Error(journeyResponse.error.message);
       }
 
-      const journey = response.data;
+      const journey = journeyResponse.data;
 
       if (!journey) {
         throw new Error('Jornada não encontrada.');
       }
 
-      if (body.createMaintenance) {
-        const checklistResponse = (await this.supabase
-          .from('vehicle_checklists')
-          .select('items, notes')
-          .eq('journey_id', id)
-          .order('id', { ascending: false })
-          .limit(1)
-          .maybeSingle()) as SupabaseResponse<{
-          items?: Record<string, boolean>;
-          notes?: string;
-        }>;
+      const updateResponse = (await this.supabase
+        .from('journeys')
+        .update({
+          status: 'cancelled',
+          block_reason: body.blockReason ?? null,
+        })
+        .eq('id', id)
+        .select()
+        .single()) as SupabaseResponse<JourneyData>;
 
-        const checklistData = {
-          items: checklistResponse.data?.items ?? {},
-          notes: checklistResponse.data?.notes ?? '',
-        };
+      if (updateResponse.error) {
+        throw new Error(updateResponse.error.message);
+      }
 
-        const failedItemsList = Object.entries(checklistData.items)
+      const updatedJourney = updateResponse.data;
+
+      if (!updatedJourney) {
+        throw new Error('Jornada não encontrada.');
+      }
+
+      if (body.createMaintenance === true) {
+        const checklistData = journey.checklist?.[0] || {};
+        const checklistItems = checklistData.items ?? {};
+        const failedItemsList = Object.entries(checklistItems)
           .filter(([, status]) => status === false)
           .map(([item]) => item)
           .join(', ');
+        const failureDescription = failedItemsList
+          ? failedItemsList
+          : 'Nenhum item identificado';
 
-        const descriptionParts = [
-          `Bloqueio de Jornada. Motivo: ${body.blockReason}`,
-        ];
+        const blockReason = body.blockReason ?? 'Motivo não informado';
+        const description = `Bloqueio de Segurança: ${blockReason}. Falhas: ${failureDescription}`;
 
-        if (failedItemsList) {
-          descriptionParts.push(`Itens Reprovados: ${failedItemsList}`);
-        }
-
-        if (checklistData.notes) {
-          descriptionParts.push(`Obs: ${checklistData.notes}`);
-        }
-
-        console.log('Criando manutenção de bloqueio:', {
-          vehicle_id: journey.vehicle_id,
-          driver_id: journey.driver_id,
-          type: 'Corretiva - Bloqueio',
-          status: 'Pendente',
-          priority: 'Alta',
-          checklist_data: checklistData,
-        });
         await this.supabase.from('maintenances').insert({
-          vehicle_id: journey.vehicle_id,
-          driver_id: journey.driver_id,
+          vehicle_id: updatedJourney.vehicle_id,
+          driver_id: updatedJourney.driver_id,
           type: 'Corretiva - Bloqueio',
-          description: descriptionParts.join('. '),
+          description,
           status: 'Pendente',
-          priority: 'Alta',
-          created_at: new Date().toISOString(),
+          priority: 'Crítica',
           checklist_data: checklistData,
-          cost: 0,
-          provider: 'Interno',
         });
       }
 
-      return journey;
+      return updatedJourney;
     } catch (error) {
       console.error('Erro ao bloquear jornada:', error);
       throw error instanceof Error
