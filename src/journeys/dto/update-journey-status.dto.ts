@@ -1,25 +1,18 @@
-import { IsBoolean, IsIn, IsNotEmpty, IsString } from 'class-validator';
+import { IsBoolean, IsIn, IsOptional, IsString } from 'class-validator';
 
-export class AuthorizeJourneyDto {
-  @IsIn(['active'])
-  status: 'active';
+export class UpdateJourneyStatusDto {
+  @IsIn(['active', 'cancelled'])
+  status: 'active' | 'cancelled';
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  adminNotes: string;
+  adminNotes?: string;
 
-  @IsBoolean()
-  authorizedWithRisk: boolean;
-}
-
-export class BlockJourneyDto {
-  @IsIn(['cancelled'])
-  status: 'cancelled';
-
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  blockReason: string;
+  blockReason?: string;
 
+  @IsOptional()
   @IsBoolean()
-  createMaintenance: boolean;
+  createMaintenance?: boolean;
 }
