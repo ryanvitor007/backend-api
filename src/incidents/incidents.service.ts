@@ -131,8 +131,8 @@ export class IncidentsService implements OnModuleInit {
 
     // 2. Salvar no Banco
     const payload = {
-      tipo: createIncidentDto.type,
-      data_ocorrencia: createIncidentDto.date,
+      tipo: createIncidentDto.type || 'Sinistro',
+      data_ocorrencia: createIncidentDto.date || new Date(),
       hora_ocorrencia: createIncidentDto.time,
       veiculo_placa: createIncidentDto.vehiclePlate,
       veiculo_modelo: createIncidentDto.vehicleModel,
