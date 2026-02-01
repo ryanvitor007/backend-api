@@ -212,7 +212,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
+          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*)',
         )
         .in('status', ['active', 'pending_approval', 'resting', 'meal'])
         .order('start_time', { ascending: false })) as SupabaseResponse<
@@ -246,7 +246,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
+          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*)',
         )
         .or(
           [
