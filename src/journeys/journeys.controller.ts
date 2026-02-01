@@ -30,6 +30,11 @@ export class JourneysController {
     return this.journeysService.findByDate(date);
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.journeysService.findOne(+id);
+  }
+
   @Get(':id/status')
   getStatus(@Param('id') id: string) {
     return this.journeysService.getStatus(+id);

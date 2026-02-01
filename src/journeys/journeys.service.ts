@@ -180,12 +180,39 @@ export class JourneysService {
     }
   }
 
+  async findOne(id: number) {
+    try {
+      const response = (await this.supabase
+        .from('journeys')
+        .select(
+          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
+        )
+        .eq('id', id)
+        .single()) as SupabaseResponse<JourneyWithChecklist>;
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data) {
+        throw new Error('Jornada não encontrada.');
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Erro ao buscar detalhes da jornada:', error);
+      throw error instanceof Error
+        ? error
+        : new Error('Erro ao buscar detalhes da jornada.');
+    }
+  }
+
   async findAllMonitoring() {
     try {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca)',
+          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
         )
         .in('status', ['active', 'pending_approval', 'resting', 'meal'])
         .order('start_time', { ascending: false })) as SupabaseResponse<
@@ -219,7 +246,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca)',
+          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
         )
         .or(
           [
