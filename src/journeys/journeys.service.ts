@@ -462,10 +462,7 @@ export class JourneysService {
         `Inserindo manutenção de bloqueio para jornada ${journey.id}`,
         'JourneysService',
       );
-      Logger.log(
-        JSON.stringify(maintenancePayload),
-        'JourneysService',
-      );
+      Logger.log(JSON.stringify(maintenancePayload), 'JourneysService');
 
       const maintenanceResponse = await this.supabase
         .from('maintenances')
