@@ -25,7 +25,7 @@ export interface EventData {
   timestamp: string;
 }
 
-interface VehicleChecklistData {
+export interface VehicleChecklistData {
   id?: number;
   journey_id?: number;
   driver_id?: number;
@@ -36,7 +36,7 @@ interface VehicleChecklistData {
   created_at?: string;
 }
 
-interface JourneyWithChecklist extends JourneyData {
+export interface JourneyWithChecklist extends JourneyData {
   checklist?: VehicleChecklistData[];
 }
 

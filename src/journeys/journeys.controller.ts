@@ -1,4 +1,12 @@
-import { Controller, Get, Post, Body, Param, Patch, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Patch,
+  Query,
+} from '@nestjs/common';
 import { JourneysService } from './journeys.service';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
@@ -47,10 +55,7 @@ export class JourneysController {
   }
 
   @Patch(':id/authorize')
-  authorize(
-    @Param('id') id: string,
-    @Body() body: UpdateJourneyStatusDto,
-  ) {
+  authorize(@Param('id') id: string, @Body() body: UpdateJourneyStatusDto) {
     return this.journeysService.authorize(+id, body);
   }
 
