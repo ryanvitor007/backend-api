@@ -83,6 +83,25 @@ export class IncidentsService implements OnModuleInit {
     files?: Array<Express.Multer.File>,
   ) {
     const photoUrls: string[] = [];
+    const journeyId = createIncidentDto.journeyId;
+
+    if (journeyId !== undefined && journeyId !== null) {
+      const { data: journey, error: journeyError } = await this.supabase
+        .from('journeys')
+        .select('id')
+        .eq('id', journeyId)
+        .maybeSingle();
+
+      if (journeyError) {
+        throw new Error(
+          `Erro ao validar jornada vinculada: ${journeyError.message}`,
+        );
+      }
+
+      if (!journey) {
+        throw new Error('Jornada informada não encontrada.');
+      }
+    }
 
     // 1. Processar Uploads de Fotos
     if (files && files.length > 0) {
@@ -124,6 +143,7 @@ export class IncidentsService implements OnModuleInit {
       acionamento_seguro: String(createIncidentDto.insuranceClaim) === 'true',
       status: createIncidentDto.status || 'Aberto',
       fotos: photoUrls,
+      journey_id: journeyId ?? null,
     };
 
     const { data, error } = await this.supabase

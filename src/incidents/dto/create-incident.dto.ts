@@ -10,4 +10,5 @@ export class CreateIncidentDto {
   estimatedCost: number;
   insuranceClaim: boolean | string; // Aceita string vinda do FormData ou boolean
   status?: string;
+  journeyId?: number;
 }
