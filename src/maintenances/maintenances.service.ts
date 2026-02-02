@@ -81,7 +81,9 @@ export class MaintenancesService implements OnModuleInit {
   async findAll() {
     const { data, error } = await this.supabase
       .from('maintenances')
-      .select('*, incident:incidents(fotos, descricao, data_ocorrencia)')
+      .select(
+        '*, vehicle:vehicles(*), driver:employees(*), incident:incidents(id, fotos, descricao, created_at)',
+      )
       .order('scheduled_date', { ascending: false });
 
     if (error) throw new Error(error.message);
@@ -91,7 +93,9 @@ export class MaintenancesService implements OnModuleInit {
   async findOne(id: number) {
     const { data, error } = await this.supabase
       .from('maintenances')
-      .select('*, incident:incidents(fotos, descricao, data_ocorrencia)')
+      .select(
+        '*, vehicle:vehicles(*), driver:employees(*), incident:incidents(id, fotos, descricao, created_at)',
+      )
       .eq('id', id)
       .single();
 
