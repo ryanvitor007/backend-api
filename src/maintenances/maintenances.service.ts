@@ -170,6 +170,24 @@ export class MaintenancesService implements OnModuleInit {
       .single();
 
     if (error) throw new Error(error.message);
+
+    if (data?.status === 'Concluída' && data.incident_id) {
+      const { error: incidentError } = await this.supabase
+        .from('incidents')
+        .update({
+          status: 'Concluído',
+          custo_estimado: data.cost ?? null,
+          nota_fiscal_url: data.invoice_url ?? null,
+        })
+        .eq('id', data.incident_id);
+
+      if (incidentError) {
+        throw new Error(
+          `Erro ao atualizar incidente: ${incidentError.message}`,
+        );
+      }
+    }
+
     return data;
   }
 }
