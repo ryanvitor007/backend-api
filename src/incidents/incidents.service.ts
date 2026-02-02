@@ -89,13 +89,47 @@ export class IncidentsService implements OnModuleInit {
       throw new Error(`Erro ao buscar incidente: ${incidentError.message}`);
     }
 
-    const description = `Manutenção corretiva originada do Sinistro #${incident.id}: ${incident.descricao}`;
+    let vehicleId: number | null = null;
+
+    if (incident.journey_id) {
+      const { data: journey, error: journeyError } = await this.supabase
+        .from('journeys')
+        .select('id, vehicle:vehicles(id)')
+        .eq('id', incident.journey_id)
+        .maybeSingle();
+
+      if (journeyError) {
+        throw new Error(`Erro ao buscar jornada: ${journeyError.message}`);
+      }
+
+      vehicleId = journey?.vehicle?.id ?? null;
+    }
+
+    if (!vehicleId && incident.veiculo_placa) {
+      const { data: vehicle, error: vehicleError } = await this.supabase
+        .from('vehicles')
+        .select('id')
+        .eq('placa', incident.veiculo_placa)
+        .maybeSingle();
+
+      if (vehicleError) {
+        throw new Error(`Erro ao buscar veículo: ${vehicleError.message}`);
+      }
+
+      vehicleId = vehicle?.id ?? null;
+    }
+
+    if (!vehicleId) {
+      throw new Error('Veículo não encontrado para o incidente informado.');
+    }
+
+    const description = `Reparo referente ao Sinistro #${incident.id}: ${incident.descricao}`;
 
     const { data: maintenance, error: maintenanceError } = await this.supabase
       .from('maintenances')
       .insert({
         incident_id: incident.id,
-        vehicle_plate: incident.veiculo_placa,
+        vehicle_id: vehicleId,
         description,
         type: 'Corretiva - Sinistro',
         status: 'Pendente',
@@ -187,15 +221,22 @@ export class IncidentsService implements OnModuleInit {
       tipo: createIncidentDto.type || 'Sinistro',
       data_ocorrencia: createIncidentDto.date || new Date(),
       hora_ocorrencia: createIncidentDto.time,
-      veiculo_placa: journeyData?.vehicle?.placa ?? createIncidentDto.vehiclePlate,
+      veiculo_placa:
+        journeyData !== null
+          ? journeyData.vehicle?.placa ?? null
+          : createIncidentDto.vehiclePlate,
       veiculo_modelo:
-        journeyData?.vehicle?.modelo ?? createIncidentDto.vehicleModel,
-      motorista_nome: journeyData?.driver?.name ?? createIncidentDto.driverName,
+        journeyData !== null
+          ? journeyData.vehicle?.modelo ?? null
+          : createIncidentDto.vehicleModel,
+      motorista_nome:
+        journeyData !== null
+          ? journeyData.driver?.name ?? null
+          : createIncidentDto.driverName,
       localizacao:
         createIncidentDto.location ?? journeyData?.start_location ?? null,
       descricao: createIncidentDto.description,
-      custo_estimado:
-        journeyData !== null ? 0 : createIncidentDto.estimatedCost,
+      custo_estimado: journeyData !== null ? 0 : createIncidentDto.estimatedCost,
       acionamento_seguro: String(createIncidentDto.insuranceClaim) === 'true',
       status:
         journeyData !== null
