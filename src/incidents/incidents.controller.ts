@@ -47,4 +47,9 @@ export class IncidentsController {
   ) {
     return this.incidentsService.concludeIncident(+id, file);
   }
+
+  @Post(':id/create-maintenance')
+  createMaintenance(@Param('id') id: string) {
+    return this.incidentsService.createMaintenanceFromIncident(+id);
+  }
 }

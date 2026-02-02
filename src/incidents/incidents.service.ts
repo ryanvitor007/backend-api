@@ -77,6 +77,52 @@ export class IncidentsService implements OnModuleInit {
     return data;
   }
 
+  // CRIAR MANUTENÇÃO A PARTIR DE INCIDENTE
+  async createMaintenanceFromIncident(id: number) {
+    const { data: incident, error: incidentError } = await this.supabase
+      .from('incidents')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (incidentError) {
+      throw new Error(`Erro ao buscar incidente: ${incidentError.message}`);
+    }
+
+    const description = `Manutenção corretiva originada do Sinistro #${incident.id}: ${incident.descricao}`;
+
+    const { data: maintenance, error: maintenanceError } = await this.supabase
+      .from('maintenances')
+      .insert({
+        incident_id: incident.id,
+        vehicle_plate: incident.veiculo_placa,
+        description,
+        type: 'Corretiva - Sinistro',
+        status: 'Pendente',
+      })
+      .select()
+      .single();
+
+    if (maintenanceError) {
+      throw new Error(
+        `Erro ao criar manutenção do incidente: ${maintenanceError.message}`,
+      );
+    }
+
+    const { error: updateError } = await this.supabase
+      .from('incidents')
+      .update({ status: 'Em Manutenção' })
+      .eq('id', incident.id);
+
+    if (updateError) {
+      throw new Error(
+        `Erro ao atualizar status do incidente: ${updateError.message}`,
+      );
+    }
+
+    return maintenance;
+  }
+
   // CRIAR INCIDENTE
   async create(
     createIncidentDto: CreateIncidentDto,
@@ -84,11 +130,16 @@ export class IncidentsService implements OnModuleInit {
   ) {
     const photoUrls: string[] = [];
     const journeyId = createIncidentDto.journeyId;
+    let journeyData: {
+      vehicle?: { placa?: string | null; modelo?: string | null };
+      driver?: { name?: string | null };
+      start_location?: string | null;
+    } | null = null;
 
     if (journeyId !== undefined && journeyId !== null) {
       const { data: journey, error: journeyError } = await this.supabase
         .from('journeys')
-        .select('id')
+        .select('*, vehicle:vehicles(*), driver:employees(*)')
         .eq('id', journeyId)
         .maybeSingle();
 
@@ -101,6 +152,8 @@ export class IncidentsService implements OnModuleInit {
       if (!journey) {
         throw new Error('Jornada informada não encontrada.');
       }
+
+      journeyData = journey;
     }
 
     // 1. Processar Uploads de Fotos
@@ -134,14 +187,20 @@ export class IncidentsService implements OnModuleInit {
       tipo: createIncidentDto.type || 'Sinistro',
       data_ocorrencia: createIncidentDto.date || new Date(),
       hora_ocorrencia: createIncidentDto.time,
-      veiculo_placa: createIncidentDto.vehiclePlate,
-      veiculo_modelo: createIncidentDto.vehicleModel,
-      motorista_nome: createIncidentDto.driverName,
-      localizacao: createIncidentDto.location,
+      veiculo_placa: journeyData?.vehicle?.placa ?? createIncidentDto.vehiclePlate,
+      veiculo_modelo:
+        journeyData?.vehicle?.modelo ?? createIncidentDto.vehicleModel,
+      motorista_nome: journeyData?.driver?.name ?? createIncidentDto.driverName,
+      localizacao:
+        createIncidentDto.location ?? journeyData?.start_location ?? null,
       descricao: createIncidentDto.description,
-      custo_estimado: createIncidentDto.estimatedCost,
+      custo_estimado:
+        journeyData !== null ? 0 : createIncidentDto.estimatedCost,
       acionamento_seguro: String(createIncidentDto.insuranceClaim) === 'true',
-      status: createIncidentDto.status || 'Aberto',
+      status:
+        journeyData !== null
+          ? 'Aguardando Manutenção'
+          : createIncidentDto.status || 'Aberto',
       fotos: photoUrls,
       journey_id: journeyId ?? null,
     };

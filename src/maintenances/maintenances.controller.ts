@@ -28,6 +28,11 @@ export class MaintenancesController {
     return this.service.findAll();
   }
 
+  @Get(':id')
+  findOne(@Param('id') id: string) {
+    return this.service.findOne(+id);
+  }
+
   @Patch(':id/complete')
   complete(@Param('id') id: string) {
     return this.service.complete(+id);
