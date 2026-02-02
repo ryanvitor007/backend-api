@@ -4,7 +4,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
 
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { CreateIncidentDto } from './dto/create-incident.dto';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { v4 as uuidv4 } from 'uuid';
@@ -81,7 +81,7 @@ export class IncidentsService implements OnModuleInit {
   async createMaintenanceFromIncident(id: number) {
     const { data: incident, error: incidentError } = await this.supabase
       .from('incidents')
-      .select('*')
+      .select('*, journey:journeys(vehicle_id, driver_id)')
       .eq('id', id)
       .single();
 
@@ -89,50 +89,27 @@ export class IncidentsService implements OnModuleInit {
       throw new Error(`Erro ao buscar incidente: ${incidentError.message}`);
     }
 
-    let vehicleId: number | null = null;
+    const vehicleId = incident.vehicle_id ?? incident.journey?.vehicle_id ?? null;
+    const driverId = incident.driver_id ?? incident.journey?.driver_id ?? null;
 
-    if (incident.journey_id) {
-      const { data: journey, error: journeyError } = await this.supabase
-        .from('journeys')
-        .select('id, vehicle:vehicles(id)')
-        .eq('id', incident.journey_id)
-        .maybeSingle();
-
-      if (journeyError) {
-        throw new Error(`Erro ao buscar jornada: ${journeyError.message}`);
-      }
-
-      vehicleId = journey?.vehicle?.[0]?.id ?? null;
+    if (!vehicleId && !driverId) {
+      throw new BadRequestException(
+        'Não foi possível identificar o veículo do incidente informado.',
+      );
     }
 
-    if (!vehicleId && incident.veiculo_placa) {
-      const { data: vehicle, error: vehicleError } = await this.supabase
-        .from('vehicles')
-        .select('id')
-        .eq('placa', incident.veiculo_placa)
-        .maybeSingle();
-
-      if (vehicleError) {
-        throw new Error(`Erro ao buscar veículo: ${vehicleError.message}`);
-      }
-
-      vehicleId = vehicle?.id ?? null;
-    }
-
-    if (!vehicleId) {
-      throw new Error('Veículo não encontrado para o incidente informado.');
-    }
-
-    const description = `Reparo referente ao Sinistro #${incident.id}: ${incident.descricao}`;
+    const description = `Manutenção gerada via Sinistro #${id}. Descrição original: ${incident.descricao}`;
 
     const { data: maintenance, error: maintenanceError } = await this.supabase
       .from('maintenances')
       .insert({
         incident_id: incident.id,
         vehicle_id: vehicleId,
+        driver_id: driverId,
         description,
         type: 'Corretiva - Sinistro',
         status: 'Pendente',
+        cost: 0,
       })
       .select()
       .single();
