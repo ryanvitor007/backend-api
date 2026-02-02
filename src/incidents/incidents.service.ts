@@ -102,7 +102,7 @@ export class IncidentsService implements OnModuleInit {
         throw new Error(`Erro ao buscar jornada: ${journeyError.message}`);
       }
 
-      vehicleId = journey?.vehicle?.id ?? null;
+      vehicleId = journey?.vehicle?.[0]?.id ?? null;
     }
 
     if (!vehicleId && incident.veiculo_placa) {
