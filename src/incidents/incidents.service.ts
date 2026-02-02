@@ -139,7 +139,22 @@ export class IncidentsService implements OnModuleInit {
       );
     }
 
-    return maintenance;
+    const { data: maintenanceDetails, error: maintenanceDetailsError } =
+      await this.supabase
+        .from('maintenances')
+        .select(
+          '*, vehicle:vehicles(*), driver:employees(*), incident:incidents(id, fotos, descricao, created_at)',
+        )
+        .eq('id', maintenance.id)
+        .single();
+
+    if (maintenanceDetailsError) {
+      throw new Error(
+        `Erro ao buscar manutenção criada: ${maintenanceDetailsError.message}`,
+      );
+    }
+
+    return maintenanceDetails;
   }
 
   // CRIAR INCIDENTE
