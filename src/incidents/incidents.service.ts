@@ -81,7 +81,9 @@ export class IncidentsService implements OnModuleInit {
   async createMaintenanceFromIncident(id: number) {
     const { data: incident, error: incidentError } = await this.supabase
       .from('incidents')
-      .select('*, journey:journeys(vehicle_id, driver_id)')
+      .select(
+        '*, journey:journeys!left(vehicle_id, driver_id, vehicle:vehicles(placa, modelo))',
+      )
       .eq('id', id)
       .single();
 
@@ -89,16 +91,20 @@ export class IncidentsService implements OnModuleInit {
       throw new Error(`Erro ao buscar incidente: ${incidentError.message}`);
     }
 
-    const vehicleId = incident.vehicle_id ?? incident.journey?.vehicle_id ?? null;
-    const driverId = incident.driver_id ?? incident.journey?.driver_id ?? null;
+    const vehicleId = incident.journey?.vehicle_id || incident.vehicle_id;
+    const driverId = incident.journey?.driver_id || incident.driver_id;
 
-    if (!vehicleId && !driverId) {
+    if (!vehicleId) {
       throw new BadRequestException(
-        'Não foi possível identificar o veículo do incidente informado.',
+        'Não foi possível identificar o veículo deste incidente. Verifique se há uma jornada vinculada.',
       );
     }
 
-    const description = `Manutenção gerada via Sinistro #${id}. Descrição original: ${incident.descricao}`;
+    const vehiclePlate =
+      incident.veiculo_placa ?? incident.journey?.vehicle?.placa ?? null;
+    const vehicleModel =
+      incident.veiculo_modelo ?? incident.journey?.vehicle?.modelo ?? null;
+    const description = `Manutenção gerada automaticamente do Sinistro #${id}. Detalhes: ${incident.descricao}`;
 
     const { data: maintenance, error: maintenanceError } = await this.supabase
       .from('maintenances')
@@ -109,6 +115,8 @@ export class IncidentsService implements OnModuleInit {
         description,
         type: 'Corretiva - Sinistro',
         status: 'Pendente',
+        vehicle_plate: vehiclePlate,
+        vehicle_model: vehicleModel,
         cost: 0,
       })
       .select()
