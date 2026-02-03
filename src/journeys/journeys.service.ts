@@ -40,6 +40,10 @@ export interface JourneyWithChecklist extends JourneyData {
   checklist?: VehicleChecklistData[];
 }
 
+const driverSelect =
+  'driver:employees(id, name, cpf, cnh, cnh_category, cnh_expiry, phone, email, active, role)';
+const vehicleSelect = 'vehicle:vehicles(id, placa, modelo, marca)';
+
 interface SupabaseError {
   message: string;
   details?: string;
@@ -185,7 +189,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*, photos:incident_photos(*))',
+          `*, checklist:vehicle_checklists(*), ${driverSelect}, ${vehicleSelect}, incidents:incidents(*, photos:incident_photos(*))`,
         )
         .eq('id', id)
         .single()) as SupabaseResponse<JourneyWithChecklist>;
@@ -212,7 +216,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, checklist:vehicle_checklists(*), driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*)',
+          `*, checklist:vehicle_checklists(*), ${driverSelect}, ${vehicleSelect}, incidents:incidents(*)`,
         )
         .in('status', ['active', 'pending_approval', 'resting', 'meal'])
         .order('start_time', { ascending: false })) as SupabaseResponse<
@@ -246,7 +250,7 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          '*, driver:employees(name, photo), vehicle:vehicles(placa, modelo, marca), incidents:incidents(*)',
+          `*, ${driverSelect}, ${vehicleSelect}, incidents:incidents(*)`,
         )
         .or(
           [
@@ -274,7 +278,7 @@ export class JourneysService {
   async findAllActive() {
     const response = (await this.supabase
       .from('journeys')
-      .select('*, driver:drivers(name, photo), vehicle:vehicles(placa, modelo)')
+      .select(`*, ${driverSelect}, ${vehicleSelect}`)
       .in('status', ['active', 'pending_approval', 'resting', 'meal'])
       .order('start_time', { ascending: false })) as SupabaseResponse<
       JourneyData[]
@@ -296,7 +300,7 @@ export class JourneysService {
 
     const response = (await this.supabase
       .from('journeys')
-      .select('*, driver:drivers(name, photo), vehicle:vehicles(placa, modelo)')
+      .select(`*, ${driverSelect}, ${vehicleSelect}`)
       .or(
         [
           `and(status.eq.finished,end_time.gte.${startIso},end_time.lt.${endIso})`,
