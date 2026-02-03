@@ -140,6 +140,13 @@ export class MaintenancesService implements OnModuleInit {
       }
     }
 
+    if (typeof updateDto.incident_id === 'string') {
+      const parsedIncidentId = Number(updateDto.incident_id);
+      if (!Number.isNaN(parsedIncidentId)) {
+        payload.incident_id = parsedIncidentId;
+      }
+    }
+
     if (file) {
       const extension = path.extname(file.originalname);
       const fileName = `maintenance_${id}_${Date.now()}${extension}`;

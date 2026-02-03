@@ -12,6 +12,11 @@ export class UpdateMaintenanceDto {
   cost?: number;
 
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  incident_id?: number;
+
+  @IsOptional()
   @IsString()
   provider?: string;
 
