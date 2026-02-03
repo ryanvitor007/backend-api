@@ -50,6 +50,29 @@ export class MaintenancesController {
     @Body() dto: UpdateMaintenanceDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    return this.service.update(+id, dto, file);
+    const parsedDto: UpdateMaintenanceDto = {
+      ...dto,
+      cost:
+        typeof dto.cost === 'string' && dto.cost.trim() !== ''
+          ? Number(dto.cost)
+          : dto.cost,
+      incident_id:
+        typeof dto.incident_id === 'string' && dto.incident_id.trim() !== ''
+          ? Number(dto.incident_id)
+          : dto.incident_id,
+    };
+
+    if (typeof parsedDto.cost === 'number' && Number.isNaN(parsedDto.cost)) {
+      delete parsedDto.cost;
+    }
+
+    if (
+      typeof parsedDto.incident_id === 'number' &&
+      Number.isNaN(parsedDto.incident_id)
+    ) {
+      delete parsedDto.incident_id;
+    }
+
+    return this.service.update(+id, parsedDto, file);
   }
 }
