@@ -50,15 +50,17 @@ export class MaintenancesController {
     @Body() dto: UpdateMaintenanceDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
+    const costValue = dto.cost as unknown;
+    const incidentIdValue = dto.incident_id as unknown;
     const parsedDto: UpdateMaintenanceDto = {
       ...dto,
       cost:
-        typeof dto.cost === 'string' && dto.cost.trim() !== ''
-          ? Number(dto.cost)
+        typeof costValue === 'string' && costValue.trim() !== ''
+          ? Number(costValue)
           : dto.cost,
       incident_id:
-        typeof dto.incident_id === 'string' && dto.incident_id.trim() !== ''
-          ? Number(dto.incident_id)
+        typeof incidentIdValue === 'string' && incidentIdValue.trim() !== ''
+          ? Number(incidentIdValue)
           : dto.incident_id,
     };
 
