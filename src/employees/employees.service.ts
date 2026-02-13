@@ -4,7 +4,8 @@ import {
   OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
+import * as bcrypt from 'bcrypt';
 import { CreateEmployeeDto, LoginDto } from './dto/create-employee.dto';
 
 @Injectable()
@@ -18,29 +19,45 @@ export class EmployeesService implements OnModuleInit {
     );
   }
 
+  private sanitizeEmployee<T extends { password?: string }>(employee: T): Omit<T, 'password'> {
+    // Segurança/LGPD: evita vazamento de hash/senha para o front-end e logs de API.
+    const { password, ...safeEmployee } = employee;
+    return safeEmployee;
+  }
+
   // Criar novo funcionário
   async create(createEmployeeDto: CreateEmployeeDto) {
+    // Segurança: hash com bcrypt (salt rounds >= 10) antes da persistência.
+    const passwordHash = await bcrypt.hash(createEmployeeDto.password, 10);
+
     const { data, error } = await this.supabase
       .from('employees')
-      .insert(createEmployeeDto)
+      .insert({ ...createEmployeeDto, password: passwordHash })
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return data;
+    return this.sanitizeEmployee(data);
   }
 
   // Atualizar funcionário
   async update(id: number, updateData: any) {
+    let payload = { ...updateData };
+
+    if (updateData?.password) {
+      // Segurança: nunca permitir update de senha sem novo hash.
+      payload.password = await bcrypt.hash(updateData.password, 10);
+    }
+
     const { data, error } = await this.supabase
       .from('employees')
-      .update(updateData)
+      .update(payload)
       .eq('id', id)
       .select()
       .single();
 
     if (error) throw new Error(error.message);
-    return data;
+    return this.sanitizeEmployee(data);
   }
 
   // Remover funcionário
@@ -54,25 +71,36 @@ export class EmployeesService implements OnModuleInit {
     return { message: 'Funcionário removido com sucesso' };
   }
 
-  // Validar Login
-  async login(loginDto: LoginDto) {
+  async findByEmail(email: string) {
     const { data: user, error } = await this.supabase
       .from('employees')
       .select('*')
-      .eq('email', loginDto.email)
+      .eq('email', email)
       .single();
 
     if (error || !user) {
+      return null;
+    }
+
+    return user;
+  }
+
+  // Validar Login
+  async login(loginDto: LoginDto) {
+    const user = await this.findByEmail(loginDto.email);
+
+    if (!user) {
       throw new UnauthorizedException('Usuário não encontrado.');
     }
 
-    if (user.password !== loginDto.password) {
+    // Segurança: comparação resistente com bcrypt.compare (sem igualdade direta de string).
+    const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+
+    if (!isPasswordValid) {
       throw new UnauthorizedException('Senha incorreta.');
     }
 
-    // Retorna dados do usuário (sem a senha)
-    const { password, ...result } = user;
-    return result;
+    return this.sanitizeEmployee(user);
   }
 
   // Listar todos
@@ -83,6 +111,6 @@ export class EmployeesService implements OnModuleInit {
       .order('name');
 
     if (error) throw new Error(error.message);
-    return data;
+    return (data ?? []).map((employee: any) => this.sanitizeEmployee(employee));
   }
 }

@@ -19,6 +19,7 @@ import { ReportsModule } from './reports/reports.module';
 import { EmployeesModule } from './employees/employees.module';
 import { JourneysModule } from './journeys/journeys.module';
 import { DatabaseModule } from './database/database.module';
+import { AuthModule } from './auth/auth.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { DatabaseModule } from './database/database.module';
     IncidentsModule,
     ReportsModule,
     EmployeesModule,
+    AuthModule,
     JourneysModule,
   ],
   controllers: [AppController, DetranController, VehiclesController],
