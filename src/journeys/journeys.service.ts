@@ -250,7 +250,8 @@ export class JourneysService {
       const response = (await this.supabase
         .from('journeys')
         .select(
-          `*, ${driverSelect}, ${vehicleSelect}, incidents:incidents(*)`,
+          `*, ${driverSelect},
+           ${vehicleSelect}, incidents:incidents(*)`,
         )
         .or(
           [
