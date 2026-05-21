@@ -163,14 +163,17 @@ export class IncidentsService implements OnModuleInit {
     files?: Array<Express.Multer.File>,
   ) {
     const photoUrls: string[] = [];
-    const journeyId = createIncidentDto.journeyId;
+    const rawJourneyId = createIncidentDto.journeyId;
+    const journeyId = rawJourneyId && !isNaN(Number(rawJourneyId)) && Number(rawJourneyId) > 0
+      ? Number(rawJourneyId)
+      : null;
     let journeyData: {
       vehicle?: { placa?: string | null; modelo?: string | null };
       driver?: { name?: string | null };
       start_location?: string | null;
     } | null = null;
 
-    if (journeyId !== undefined && journeyId !== null) {
+    if (journeyId) {
       const { data: journey, error: journeyError } = await this.supabase
         .from('journeys')
         .select('*, vehicle:vehicles(*), driver:employees(*)')
@@ -236,14 +239,15 @@ export class IncidentsService implements OnModuleInit {
       localizacao:
         createIncidentDto.location ?? journeyData?.start_location ?? null,
       descricao: createIncidentDto.description,
-      custo_estimado: journeyData !== null ? 0 : createIncidentDto.estimatedCost,
-      acionamento_seguro: String(createIncidentDto.insuranceClaim) === 'true',
+      custo_estimado: journeyData !== null ? 0 : (createIncidentDto.estimatedCost !== undefined && createIncidentDto.estimatedCost !== null && !isNaN(Number(createIncidentDto.estimatedCost)) ? Number(createIncidentDto.estimatedCost) : 0),
+      acionamento_seguro: String(createIncidentDto.insuranceClaim) === 'true' || createIncidentDto.insuranceClaim === true,
       status:
         journeyData !== null
           ? 'Aguardando Manutenção'
           : createIncidentDto.status || 'Aberto',
       fotos: photoUrls,
-      journey_id: journeyId ?? null,
+      journey_id: journeyId,
+      houve_vitimas: String(createIncidentDto.hasVictims) === 'true' || createIncidentDto.hasVictims === true || String(createIncidentDto.houve_vitimas) === 'true' || createIncidentDto.houve_vitimas === true,
     };
 
     const { data, error } = await this.supabase

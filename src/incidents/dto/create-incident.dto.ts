@@ -42,4 +42,15 @@ export class CreateIncidentDto {
   @Type(() => Number)
   @IsNumber()
   journeyId?: number;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
+  @IsBoolean()
+  hasVictims?: boolean;
+
+  @IsOptional()
+  @Transform(({ value }) => value === 'true' || value === true || value === 1 || value === '1')
+  @IsBoolean()
+  houve_vitimas?: boolean;
 }
+
