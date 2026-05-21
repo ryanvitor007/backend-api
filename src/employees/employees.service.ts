@@ -5,7 +5,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { createClient } from '@supabase/supabase-js';
-import * as bcrypt from 'bcrypt';
+import * as bcrypt from 'bcryptjs';
 import { CreateEmployeeDto, LoginDto } from './dto/create-employee.dto';
 
 @Injectable()
