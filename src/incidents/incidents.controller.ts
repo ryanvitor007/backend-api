@@ -24,6 +24,7 @@ export class IncidentsController {
     @Body() createIncidentDto: CreateIncidentDto,
     @UploadedFiles() files: Array<Express.Multer.File>,
   ) {
+    console.log('Arquivos recebidos no controller:', files);
     return this.incidentsService.create(createIncidentDto, files);
   }
 

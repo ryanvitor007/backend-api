@@ -208,7 +208,7 @@ export class IncidentsService implements OnModuleInit {
 
         if (uploadError) {
           console.error(`Erro no upload: ${file.originalname}`, uploadError);
-          continue;
+          throw new Error('Falha no upload para o bucket: ' + uploadError.message);
         }
 
         const {
