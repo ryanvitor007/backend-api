@@ -91,13 +91,49 @@ export class IncidentsService implements OnModuleInit {
       throw new Error(`Erro ao buscar incidente: ${incidentError.message}`);
     }
 
-    const vehicleId = incident.journey?.vehicle_id || incident.vehicle_id;
-    const driverId = incident.journey?.driver_id || incident.driver_id;
+    let vehicleId = incident.journey?.vehicle_id || incident.vehicle_id;
+    let driverId = incident.journey?.driver_id || incident.driver_id;
 
     if (!vehicleId) {
-      throw new BadRequestException(
-        'Não foi possível identificar o veículo deste incidente. Verifique se há uma jornada vinculada.',
-      );
+      if (incident.veiculo_placa) {
+        const { data: vehicle, error: vehicleError } = await this.supabase
+          .from('vehicles')
+          .select('id')
+          .eq('placa', incident.veiculo_placa)
+          .maybeSingle();
+
+        if (vehicleError) {
+          throw new Error(`Erro ao buscar veículo pela placa: ${vehicleError.message}`);
+        }
+
+        if (!vehicle?.id) {
+          throw new BadRequestException('Veículo com a placa informada não foi encontrado no banco de dados.');
+        }
+        vehicleId = vehicle.id;
+      } else {
+        throw new BadRequestException('Veículo com a placa informada não foi encontrado no banco de dados.');
+      }
+    }
+
+    if (!driverId) {
+      if (incident.motorista_nome) {
+        const { data: employee, error: employeeError } = await this.supabase
+          .from('employees')
+          .select('id')
+          .eq('name', incident.motorista_nome)
+          .maybeSingle();
+
+        if (employeeError) {
+          throw new Error(`Erro ao buscar motorista pelo nome: ${employeeError.message}`);
+        }
+
+        if (!employee?.id) {
+          throw new BadRequestException('Motorista informado não foi encontrado no banco de dados.');
+        }
+        driverId = employee.id;
+      } else {
+        throw new BadRequestException('Motorista informado não foi encontrado no banco de dados.');
+      }
     }
 
     const vehiclePlate =

@@ -38,6 +38,11 @@ export class JourneysController {
     return this.journeysService.findByDate(date);
   }
 
+  @Get('driver/:driverId/history')
+  findHistoryByDriver(@Param('driverId') driverId: string) {
+    return this.journeysService.findHistoryByDriver(+driverId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.journeysService.findOne(+id);

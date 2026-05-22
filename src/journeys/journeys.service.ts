@@ -287,6 +287,29 @@ export class JourneysService {
     return response.data;
   }
 
+  async findHistoryByDriver(driverId: number) {
+    try {
+      const response = (await this.supabase
+        .from('journeys')
+        .select(
+          `*, vehicle:vehicles(*), checklist:vehicle_checklists(*), incidents:incidents(*)`,
+        )
+        .eq('driver_id', driverId)
+        .order('start_time', { ascending: false })) as SupabaseResponse<
+        JourneyData[]
+      >;
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      return response.data ?? [];
+    } catch (error) {
+      console.error('Erro ao buscar histórico do motorista:', error);
+      return [];
+    }
+  }
+
   async findByDate(date: string) {
     const startDate = new Date(`${date}T00:00:00.000Z`);
     if (Number.isNaN(startDate.getTime())) {
