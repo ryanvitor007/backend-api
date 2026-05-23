@@ -610,6 +610,11 @@ export class JourneysService {
         });
       }
 
+      await this.supabase
+        .from('vehicles')
+        .update({ km_atual: endData.endOdometer })
+        .eq('id', journey.vehicle_id);
+
       return journey;
     } catch (error) {
       console.error('Erro ao finalizar jornada:', error);
