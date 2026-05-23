@@ -22,10 +22,12 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const userRole = request.user?.role;
+    const userRole = request.user?.role?.toLowerCase();
 
     // Segurança: bloqueia acesso por default quando role não está presente/permitida.
-    const isAllowed = !!userRole && requiredRoles.includes(userRole);
+    const isAllowed =
+      !!userRole &&
+      requiredRoles.map((r) => r.toLowerCase()).includes(userRole);
 
     if (!isAllowed) {
       throw new ForbiddenException('Acesso negado para o perfil informado.');

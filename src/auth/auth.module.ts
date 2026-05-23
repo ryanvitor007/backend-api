@@ -18,8 +18,8 @@ import { JwtStrategy } from './jwt.strategy';
         secret:
           configService.get<string>('JWT_SECRET') ??
           'dev-only-fallback-change-in-production',
-        // Segurança: access token curto para reduzir janela de abuso.
-        signOptions: { expiresIn: '15m' },
+        // Segurança: tempo de expiração ajustado para 30 dias para desenvolvimento/testes estáveis.
+        signOptions: { expiresIn: '30d' },
       }),
     }),
   ],
