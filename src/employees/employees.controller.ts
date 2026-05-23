@@ -25,10 +25,7 @@ export class EmployeesController {
     return this.employeesService.create(createEmployeeDto);
   }
 
-  @Post('login')
-  login(@Body() loginDto: LoginDto) {
-    return this.employeesService.login(loginDto);
-  }
+
 
   @Get()
   @UseGuards(JwtAuthGuard, RolesGuard)
