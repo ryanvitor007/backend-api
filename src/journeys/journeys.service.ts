@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, BadRequestException } from '@nestjs/common';
 import { SupabaseClient } from '@supabase/supabase-js';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
@@ -449,7 +449,7 @@ export class JourneysService {
       }
 
       if (check.data?.status === 'cancelled') {
-        throw new Error('Ação negada: Esta viagem já foi cancelada pelo motorista.');
+        throw new BadRequestException('Esta viagem já foi cancelada pelo motorista.');
       }
 
       const response = (await this.supabase
@@ -499,7 +499,7 @@ export class JourneysService {
       }
 
       if (journey.status === 'cancelled') {
-        throw new Error('Ação negada: Esta viagem já foi cancelada pelo motorista.');
+        throw new BadRequestException('Esta viagem já foi cancelada pelo motorista.');
       }
 
       const updateResponse = (await this.supabase
