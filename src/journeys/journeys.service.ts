@@ -438,6 +438,20 @@ export class JourneysService {
 
   async authorize(id: number, body: UpdateJourneyStatusDto) {
     try {
+      const check = (await this.supabase
+        .from('journeys')
+        .select('status')
+        .eq('id', id)
+        .single()) as SupabaseResponse<{ status: string }>;
+
+      if (check.error) {
+        throw new Error(check.error.message);
+      }
+
+      if (check.data?.status === 'cancelled') {
+        throw new Error('Ação negada: Esta viagem já foi cancelada pelo motorista.');
+      }
+
       const response = (await this.supabase
         .from('journeys')
         .update({
@@ -482,6 +496,10 @@ export class JourneysService {
 
       if (!journey) {
         throw new Error('Jornada não encontrada.');
+      }
+
+      if (journey.status === 'cancelled') {
+        throw new Error('Ação negada: Esta viagem já foi cancelada pelo motorista.');
       }
 
       const updateResponse = (await this.supabase
