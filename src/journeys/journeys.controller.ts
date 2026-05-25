@@ -76,4 +76,9 @@ export class JourneysController {
   ) {
     return this.journeysService.finish(+id, body);
   }
+
+  @Patch(':id/cancel-by-driver')
+  cancelByDriver(@Param('id') id: string) {
+    return this.journeysService.cancelByDriver(+id);
+  }
 }

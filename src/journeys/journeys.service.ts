@@ -623,4 +623,46 @@ export class JourneysService {
         : new Error('Erro ao finalizar jornada.');
     }
   }
+
+  async cancelByDriver(id: number) {
+    try {
+      const response = (await this.supabase
+        .from('journeys')
+        .update({
+          status: 'cancelled',
+          block_reason: 'Cancelada pelo motorista durante a espera de aprovação.',
+        })
+        .eq('id', id)
+        .select()
+        .single()) as SupabaseResponse<JourneyData>;
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      const journey = response.data;
+
+      if (!journey) {
+        throw new Error('Jornada não encontrada.');
+      }
+
+      const { error: eventError } = await this.supabase
+        .from('journey_events')
+        .insert({
+          journey_id: id,
+          type: 'cancelled_by_driver',
+        });
+
+      if (eventError) {
+        throw new Error(eventError.message);
+      }
+
+      return journey;
+    } catch (error) {
+      console.error('Erro ao cancelar jornada pelo motorista:', error);
+      throw error instanceof Error
+        ? error
+        : new Error('Erro ao cancelar jornada pelo motorista.');
+    }
+  }
 }
