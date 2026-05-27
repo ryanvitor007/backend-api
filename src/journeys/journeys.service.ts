@@ -63,7 +63,7 @@ export class JourneysService {
   ) {}
 
   // INICIAR JORNADA
-  async create(createJourneyDto: CreateJourneyDto) {
+  async create(createJourneyDto: CreateJourneyDto, photos?: Express.Multer.File[]) {
     try {
       // --- LOGS DE DEBUG ---
       console.log('--- PAYLOAD RECEBIDO NO SERVICE ---');
@@ -101,6 +101,32 @@ export class JourneysService {
           })
         : null;
 
+      let checklistPhotosUrls: string[] = [];
+      if (photos && photos.length > 0) {
+        const uploadPromises = photos.map(async (photo) => {
+          const fileName = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
+          const { error } = await this.supabase.storage
+            .from('checklists')
+            .upload(fileName, photo.buffer, {
+              contentType: photo.mimetype,
+            });
+
+          if (error) {
+            console.error('Erro no upload da foto:', error);
+            return null;
+          }
+
+          const { data } = this.supabase.storage
+            .from('checklists')
+            .getPublicUrl(fileName);
+
+          return data.publicUrl;
+        });
+
+        const results = await Promise.all(uploadPromises);
+        checklistPhotosUrls = results.filter((url): url is string => url !== null);
+      }
+
       // 1. Criar a linha na tabela journeys
       const response = (await this.supabase
         .from('journeys')
@@ -111,6 +137,7 @@ export class JourneysService {
           start_odometer: createJourneyDto.startOdometer,
           status: journeyStatus,
           block_reason: blockReason,
+          checklist_photos: checklistPhotosUrls,
           start_time: new Date().toISOString(),
         })
         .select()

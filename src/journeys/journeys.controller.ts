@@ -6,7 +6,10 @@ import {
   Param,
   Patch,
   Query,
+  UseInterceptors,
+  UploadedFiles,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { JourneysService } from './journeys.service';
 import { CreateJourneyDto } from './dto/create-journey.dto';
 import { CreateJourneyEventDto } from './dto/journey-event.dto';
@@ -17,8 +20,12 @@ export class JourneysController {
   constructor(private readonly journeysService: JourneysService) {}
 
   @Post()
-  create(@Body() createJourneyDto: CreateJourneyDto) {
-    return this.journeysService.create(createJourneyDto);
+  @UseInterceptors(FilesInterceptor('photos', 3))
+  create(
+    @Body() createJourneyDto: CreateJourneyDto,
+    @UploadedFiles() photos?: Express.Multer.File[],
+  ) {
+    return this.journeysService.create(createJourneyDto, photos);
   }
 
   @Get('active/:driverId')
