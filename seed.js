@@ -3,7 +3,7 @@ const bcrypt = require('bcryptjs');
 
 async function seed() {
   const client = new Client({
-    connectionString: "postgresql://postgres:[Avianca1020]@db.kjavukhdmmhnkoqoeqpn.supabase.co:5432/postgres"
+    connectionString: "postgresql://postgres:Avianca1020@db.kjavukhdmmhnkoqoeqpn.supabase.co:5432/postgres"
   });
   
   try {

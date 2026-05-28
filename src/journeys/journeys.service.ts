@@ -16,6 +16,7 @@ export interface JourneyData {
   block_reason?: string | null;
   admin_notes?: string | null;
   authorized_with_risk?: boolean | null;
+  checklist_photos?: string[];
 }
 
 export interface EventData {
@@ -549,7 +550,12 @@ export class JourneysService {
         throw new Error('Jornada não encontrada.');
       }
 
-      const checklistData = journey.checklist?.[0] ?? null;
+      const checklistData = journey.checklist?.[0]
+        ? {
+            ...journey.checklist[0],
+            photos: journey.checklist_photos || [],
+          }
+        : null;
       const maintenancePayload = {
         type: 'Corretiva - Bloqueio',
         status: 'Pendente',
@@ -623,10 +629,11 @@ export class JourneysService {
         throw new Error('Jornada não encontrada.');
       }
 
-      const checklistData: { items: Record<string, boolean>; notes?: string } =
+      const checklistData: { items: Record<string, boolean>; notes?: string; photos?: string[] } =
         {
           items: endData.checklist?.items ?? {},
           notes: endData.checklist?.notes ?? '',
+          photos: journey.checklist_photos || [],
         };
       const checklistItems = checklistData.items;
 
