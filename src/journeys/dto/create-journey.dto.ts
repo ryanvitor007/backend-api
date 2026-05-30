@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsInt,
   IsNotEmpty,
@@ -33,12 +33,23 @@ export class CreateJourneyDto {
   @IsNotEmpty()
   startLocation: string;
 
+  @Transform(({ value }) => (typeof value === 'string' ? Number(value) : value))
   @IsNumber()
   @IsNotEmpty()
   startOdometer: number;
 
   // 2. Uso do ValidateNested para blindar o objeto contra o whitelist
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') {
+      try {
+        return JSON.parse(value);
+      } catch (e) {
+        return value;
+      }
+    }
+    return value;
+  })
   @ValidateNested()
   @Type(() => ChecklistDto)
   checklist?: ChecklistDto;

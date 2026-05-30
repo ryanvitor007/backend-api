@@ -75,11 +75,21 @@ export class JourneysService {
       );
 
       // Tratamento seguro para garantir que items nunca seja undefined
-      const checklistData = createJourneyDto.checklist || {
+      let checklistData = createJourneyDto.checklist;
+      if (typeof checklistData === 'string') {
+        try {
+          checklistData = JSON.parse(checklistData);
+        } catch (e) {
+          console.error('Erro ao fazer parse do checklist:', e);
+        }
+      }
+
+      // Garante que checklistData seja um objeto válido para o resto da função
+      checklistData = checklistData || {
         items: {},
         notes: '',
       };
-      // O operador ?? garante um objeto vazio se items for null/undefined
+      
       const checklistItems = checklistData.items ?? {};
 
       console.log('checklistItems processado:', JSON.stringify(checklistItems));
