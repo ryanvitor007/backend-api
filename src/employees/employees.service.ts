@@ -72,11 +72,16 @@ export class EmployeesService implements OnModuleInit {
   }
 
   async findByEmail(email: string) {
+    console.log(`[EmployeesService] findByEmail called for email: ${email}`);
     const { data: user, error } = await this.supabase
       .from('employees')
       .select('*')
       .eq('email', email)
       .single();
+
+    if (error) {
+      console.error('[EmployeesService] Supabase error in findByEmail:', error);
+    }
 
     if (error || !user) {
       return null;

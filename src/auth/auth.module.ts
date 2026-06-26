@@ -19,8 +19,7 @@ import { JwtStrategy } from './jwt.strategy';
         secret:
           configService.get<string>('JWT_SECRET') ??
           'dev-only-fallback-change-in-production',
-        // Segurança: tempo de expiração ajustado para 30 dias para desenvolvimento/testes estáveis.
-        signOptions: { expiresIn: '30d' },
+        signOptions: { expiresIn: '15m' },
       }),
     }),
   ],

@@ -1,15 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.setGlobalPrefix('api');
 
-  // ATIVA A VALIDAÇÃO GLOBAL
-  // Transform: true converte os tipos automaticamente
-  // Whitelist: true remove campos perigosos que não estão no DTO
+  app.useGlobalFilters(new HttpExceptionFilter());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
