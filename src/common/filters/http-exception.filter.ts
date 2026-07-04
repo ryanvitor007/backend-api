@@ -18,6 +18,9 @@ export class HttpExceptionFilter implements ExceptionFilter {
         ? exception.getResponse()
         : 'Erro interno do servidor';
 
+    console.error(`[HttpExceptionFilter] Exception on ${request.method} ${request.url}:`, exception);
+    console.log('[HttpExceptionFilter] Request Headers:', request.headers);
+
     const errorResponse = {
       statusCode: status,
       timestamp: new Date().toISOString(),

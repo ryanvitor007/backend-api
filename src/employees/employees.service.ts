@@ -90,6 +90,20 @@ export class EmployeesService implements OnModuleInit {
     return user;
   }
 
+  async findById(id: number) {
+    const { data: user, error } = await this.supabase
+      .from('employees')
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error || !user) {
+      return null;
+    }
+
+    return user;
+  }
+
   // Validar Login
   async login(loginDto: LoginDto) {
     const user = await this.findByEmail(loginDto.email);

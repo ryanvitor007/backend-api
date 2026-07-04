@@ -11,6 +11,10 @@ export class AuthController {
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60000 } })
   login(@Body() loginDto: LoginDto, @Req() req: any) {
+    console.log(`[AuthController] login request: email="${loginDto.email}", passwordLength=${loginDto.password?.length}\n`);
+    if (loginDto.password) {
+      console.log(`[AuthController] Password charCodes: ${Array.from(loginDto.password).map(c => c.charCodeAt(0)).join(',')}`);
+    }
     const ip = req.ip || (req.headers['x-forwarded-for'] as string) || '127.0.0.1';
     const userAgent = req.headers['user-agent'] || '';
     return this.authService.login(loginDto, ip, userAgent);

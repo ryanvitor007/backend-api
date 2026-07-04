@@ -28,11 +28,11 @@ export class AuthService implements OnModuleInit {
     const employee = await this.employeesService.findByEmail(loginDto.email);
 
     if (!employee) {
-      throw new UnauthorizedException('Credenciais inválidas.');
+      throw new UnauthorizedException('Credenciais invï¿½lidas.');
     }
 
     if (employee.active === false) {
-      throw new UnauthorizedException('Conta de usuário inativa.');
+      throw new UnauthorizedException('Conta de usuï¿½rio inativa.');
     }
 
     const isPasswordValid = await bcrypt.compare(
@@ -41,7 +41,7 @@ export class AuthService implements OnModuleInit {
     );
 
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Credenciais inválidas.');
+      throw new UnauthorizedException('Credenciais invï¿½lidas.');
     }
 
     return employee;
@@ -104,7 +104,7 @@ export class AuthService implements OnModuleInit {
         .gte('expires_at', new Date().toISOString());
 
       if (error || !sessions || sessions.length === 0) {
-        throw new UnauthorizedException('Sessão expirada ou inválida.');
+        throw new UnauthorizedException('Sessï¿½o expirada ou invï¿½lida.');
       }
 
       let activeSession: any = null;
@@ -117,10 +117,10 @@ export class AuthService implements OnModuleInit {
       }
 
       if (!activeSession) {
-        throw new UnauthorizedException('Sessão inválida.');
+        throw new UnauthorizedException('Sessï¿½o invï¿½lida.');
       }
 
-      const employee = await this.employeesService.findByEmail(payload.email || '');
+      const employee = await this.employeesService.findById(userId);
       const role = employee?.role || payload.role || 'Motorista';
 
       const newPayload = { sub: userId, role };
@@ -151,7 +151,7 @@ export class AuthService implements OnModuleInit {
         expires_in: '15m',
       };
     } catch (err) {
-      throw new UnauthorizedException('Token de refresh inválido.');
+      throw new UnauthorizedException('Token de refresh invï¿½lido.');
     }
   }
 
@@ -176,7 +176,7 @@ export class AuthService implements OnModuleInit {
       }
       return { message: 'Logout efetuado com sucesso.' };
     } catch {
-      throw new UnauthorizedException('Token inválido.');
+      throw new UnauthorizedException('Token invï¿½lido.');
     }
   }
 }
