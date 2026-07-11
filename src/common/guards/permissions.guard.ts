@@ -1,9 +1,9 @@
-import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
+ï»¿import { Injectable, CanActivate, ExecutionContext } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
-  admin: ['*'], // Admin tem todas as permissões
+  admin: ['*'], // Admin tem todas as permissoes
   operador: [
     'dashboard:read',
     'tachographs:read',
@@ -15,6 +15,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'drivers:read',
   ],
   motorista: [
+    'vehicles:read',
     'tachographs:create',
     'tachographs:read-own',
     'inspections:create',

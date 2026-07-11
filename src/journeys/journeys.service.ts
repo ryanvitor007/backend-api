@@ -42,7 +42,7 @@ export interface JourneyWithChecklist extends JourneyData {
 }
 
 const driverSelect =
-  'driver:employees(id, name, cpf, cnh, cnh_category, cnh_expiry, phone, email, active, role)';
+  'driver:employees(id, name, cpf, cnh, cnh_category, cnh_expiry, phone, email, active, role, photo)';
 const vehicleSelect = 'vehicle:vehicles(id, placa, modelo, marca)';
 
 interface SupabaseError {
@@ -66,6 +66,23 @@ export class JourneysService {
   // INICIAR JORNADA
   async create(createJourneyDto: CreateJourneyDto, photos?: Express.Multer.File[]) {
     try {
+      // 1. VALIDAÇÃO: Bloqueia múltiplas jornadas simultâneas para o mesmo motorista
+      const { data: existingJourneys, error: checkError } = await this.supabase
+        .from('journeys')
+        .select('id, status')
+        .eq('driver_id', createJourneyDto.driverId)
+        .in('status', ['active', 'pending_approval', 'resting', 'meal'])
+        .limit(1);
+
+      if (checkError) {
+        console.error('Erro ao verificar jornadas existentes:', checkError);
+        throw new Error('Erro ao verificar status atual do motorista.');
+      }
+
+      if (existingJourneys && existingJourneys.length > 0) {
+        throw new BadRequestException('O motorista já possui uma jornada ativa ou em andamento.');
+      }
+
       // --- LOGS DE DEBUG ---
       console.log('--- PAYLOAD RECEBIDO NO SERVICE ---');
       // Log seguro mesmo se checklist for undefined
