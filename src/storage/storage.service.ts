@@ -16,15 +16,15 @@ export class StorageService implements OnModuleInit {
   async uploadDiskImage(file: Express.Multer.File, pathPrefix: string): Promise<string> {
     const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
     if (!allowedMimeTypes.includes(file.mimetype)) {
-      throw new BadRequestException('Formato de arquivo não permitido. Apenas JPG, PNG e PDF são aceitos.');
+      throw new BadRequestException('Formato de arquivo nao permitido. Apenas JPG, PNG e PDF sao aceitos.');
     }
 
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
-      throw new BadRequestException('O arquivo excede o limite máximo de 10MB.');
+      throw new BadRequestException('O arquivo excede o limite maximo de 10MB.');
     }
 
-    const fileExt = file.originalname.split('.').pop() || '';
+    const fileExt = file.originalname?.split('.').pop() || 'jpg';
     const fileName = `${pathPrefix}-${Date.now()}.${fileExt}`;
     const filePath = `uploads/${fileName}`;
 
@@ -44,6 +44,7 @@ export class StorageService implements OnModuleInit {
   }
 
   async getSignedUrl(storagePath: string): Promise<string> {
+    if (!storagePath) return '';
     const { data, error } = await this.supabase.storage
       .from(this.bucketName)
       .createSignedUrl(storagePath, 15 * 60);
@@ -54,5 +55,16 @@ export class StorageService implements OnModuleInit {
     }
 
     return data.signedUrl;
+  }
+
+  async deleteFile(storagePath: string): Promise<void> {
+    if (!storagePath) return;
+    const { error } = await this.supabase.storage
+      .from(this.bucketName)
+      .remove([storagePath]);
+
+    if (error) {
+      console.error(`Erro ao remover arquivo orfao no Storage (${storagePath}):`, error);
+    }
   }
 }

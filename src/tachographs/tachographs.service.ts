@@ -1,4 +1,10 @@
-import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  NotFoundException,
+  BadRequestException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { CreateTachographDto } from './dto/create-tachograph.dto';
@@ -22,108 +28,141 @@ export class TachographsService implements OnModuleInit {
     );
   }
 
+  /**
+   * Método responsável por receber os metadados do DTO e a foto do disco analógico,
+   * realizar o upload no StorageService, salvar o registro no banco com status 'PENDING_ANALYSIS',
+   * e tratar limpeza de arquivos órfãos em caso de erro na persistência.
+   */
   async create(
     dto: CreateTachographDto,
     file: Express.Multer.File,
-    actorId: number,
-    ip: string,
-    userAgent: string,
+    actorId?: number,
+    ip?: string,
+    userAgent?: string,
   ) {
-    const kmStart = Number(dto.kmStart);
-    const kmEnd = Number(dto.kmEnd);
+    if (!file) {
+      throw new BadRequestException('A foto do disco de tacógrafo é obrigatória.');
+    }
+
+    // 1. Validação de consistência básica dos valores fornecidos
+    const kmStart = Number(dto.startKm);
+    const kmEnd = Number(dto.endKm);
     if (kmEnd < kmStart) {
-      throw new BadRequestException('KM final n�o pode ser menor que o KM inicial.');
+      throw new BadRequestException('A quilometragem final (endKm) não pode ser menor que a inicial (startKm).');
     }
 
-    const startAt = new Date(dto.startAt);
-    const endAt = new Date(dto.endAt);
-    if (endAt <= startAt) {
-      throw new BadRequestException('Data/hora final deve ser maior que a data/hora inicial.');
+    const timestamp = Date.now();
+    const pathPrefix = `tachographs/${dto.driverId}/${timestamp}`;
+    let uploadedPath: string | null = null;
+
+    try {
+      // 2. Upload da Imagem no StorageService
+      uploadedPath = await this.storageService.uploadDiskImage(file, pathPrefix);
+      const signedUrl = await this.storageService.getSignedUrl(uploadedPath);
+
+      // Cálculo de horas trabalhadas / dirigidas
+      const startAtDate = new Date(`${dto.date}T${dto.startTime}:00`);
+      const endAtDate = new Date(`${dto.date}T${dto.endTime}:00`);
+      const diffMs = endAtDate.getTime() - startAtDate.getTime();
+      const totalHours = diffMs > 0 ? Number((diffMs / (1000 * 60 * 60)).toFixed(2)) : 0;
+
+      // 3. Persistência no Banco de Dados com TransactionManager
+      const result = await this.transactionManager.execute(async (client) => {
+        const queryText = `
+          INSERT INTO public.tachograph_records 
+          (
+            driver_id,
+            vehicle_id,
+            reading_date,
+            start_at,
+            end_at,
+            km_start,
+            km_end,
+            total_hours,
+            observations,
+            disk_image_path,
+            status,
+            created_by
+          )
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING_ANALYSIS', $11)
+          RETURNING *
+        `;
+
+        const queryValues = [
+          dto.driverId,
+          dto.vehicleId,
+          dto.date,
+          dto.startTime,
+          dto.endTime,
+          kmStart,
+          kmEnd,
+          totalHours,
+          dto.observation || '',
+          uploadedPath,
+          actorId || null,
+        ];
+
+        const insertRes = await client.query(queryText, queryValues);
+        const newRecord = insertRes.rows[0];
+
+        // Registro opcional de log de auditoria
+        if (actorId) {
+          const auditQuery = `
+            INSERT INTO public.audit_logs 
+            (user_id, entity, entity_id, action, new_data, ip, user_agent)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `;
+          await client.query(auditQuery, [
+            actorId,
+            'tachograph_records',
+            newRecord.id,
+            'CREATE',
+            JSON.stringify(newRecord),
+            ip || '127.0.0.1',
+            userAgent || '',
+          ]);
+        }
+
+        return {
+          ...newRecord,
+          disk_image_url: signedUrl,
+        };
+      });
+
+      // Emissão de evento para invalidação de cache
+      this.eventEmitter.emit('dashboard.invalidate_cache');
+
+      return result;
+    } catch (error: any) {
+      // 4. Tratamento de Erros e Limpeza de Arquivo Órfão no Storage
+      if (uploadedPath) {
+        try {
+          await this.storageService.deleteFile(uploadedPath);
+        } catch (cleanupError) {
+          console.error(
+            `[TachographsService] Falha ao remover imagem órfã (${uploadedPath}):`,
+            cleanupError,
+          );
+        }
+      }
+
+      // Se o erro já for uma exceção tratada do NestJS, re-lança
+      if (
+        error instanceof BadRequestException ||
+        error instanceof NotFoundException
+      ) {
+        throw error;
+      }
+
+      // Caso contrário, lança um InternalServerErrorException
+      throw new InternalServerErrorException(
+        `Erro interno ao salvar registro de tacógrafo: ${error.message || error}`,
+      );
     }
-
-    const diffMs = endAt.getTime() - startAt.getTime();
-    const totalHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
-
-    const { data: driver } = await this.supabase
-      .from('employees')
-      .select('name, active')
-      .eq('id', +dto.driverId)
-      .is('deleted_at', null)
-      .single();
-
-    if (!driver) {
-      throw new NotFoundException('Motorista n�o encontrado.');
-    }
-    if (driver.active === false) {
-      throw new BadRequestException('Motorista est� inativo.');
-    }
-
-    const { data: vehicle } = await this.supabase
-      .from('vehicles')
-      .select('placa, status')
-      .eq('id', +dto.vehicleId)
-      .is('deleted_at', null)
-      .single();
-
-    if (!vehicle) {
-      throw new NotFoundException('Ve�culo n�o encontrado.');
-    }
-    if (vehicle.status !== 'ACTIVE') {
-      throw new BadRequestException('Ve�culo est� inativo ou em manuten��o.');
-    }
-
-    const pathPrefix = `driver-${dto.driverId}-vehicle-${dto.vehicleId}`;
-    const diskImagePath = await this.storageService.uploadDiskImage(file, pathPrefix);
-
-    const result = await this.transactionManager.execute(async (client) => {
-      const queryText = `
-        INSERT INTO public.tachograph_records 
-        (driver_id, vehicle_id, reading_date, start_at, end_at, km_start, km_end, total_hours, observations, disk_image_path, status, created_by)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'PENDING', $11)
-        RETURNING *
-      `;
-      const queryValues = [
-        +dto.driverId,
-        +dto.vehicleId,
-        dto.readingDate,
-        dto.startAt,
-        dto.endAt,
-        kmStart,
-        kmEnd,
-        totalHours,
-        dto.observations || '',
-        diskImagePath,
-        actorId,
-      ];
-      
-      const insertRes = await client.query(queryText, queryValues);
-      const newRecord = insertRes.rows[0];
-
-      const auditQuery = `
-        INSERT INTO public.audit_logs 
-        (user_id, entity, entity_id, action, new_data, ip, user_agent)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-      `;
-      await client.query(auditQuery, [
-        actorId,
-        'tachograph_records',
-        newRecord.id,
-        'CREATE',
-        JSON.stringify(newRecord),
-        ip,
-        userAgent,
-      ]);
-
-      return newRecord;
-    });
-
-    this.eventEmitter.emit('dashboard.invalidate_cache');
-    
-    return result;
   }
 
   async findAll(
-    filters: { driverId?: number; vehicleId?: number; status?: string; startDate?: string; endDate?: string },
+    filters: { driverId?: number | string; vehicleId?: number | string; status?: string; startDate?: string; endDate?: string },
     page = 1,
     limit = 10,
     sort = 'created_at',
@@ -169,7 +208,7 @@ export class TachographsService implements OnModuleInit {
       .single();
 
     if (error || !data) {
-      throw new NotFoundException('Registro de tac�grafo n�o encontrado.');
+      throw new NotFoundException('Registro de tacógrafo não encontrado.');
     }
 
     const url = await this.storageService.getSignedUrl(data.disk_image_path);
@@ -188,18 +227,25 @@ export class TachographsService implements OnModuleInit {
   ) {
     const currentRecord = await this.findOne(id);
 
-    if (updateData.kmStart !== undefined || updateData.kmEnd !== undefined) {
-      const kmStart = Number(updateData.kmStart !== undefined ? updateData.kmStart : currentRecord.km_start);
-      const kmEnd = Number(updateData.kmEnd !== undefined ? updateData.kmEnd : currentRecord.km_end);
+    const startKmVal = updateData.startKm ?? updateData.kmStart;
+    const endKmVal = updateData.endKm ?? updateData.kmEnd;
+
+    if (startKmVal !== undefined || endKmVal !== undefined) {
+      const kmStart = Number(startKmVal !== undefined ? startKmVal : currentRecord.km_start);
+      const kmEnd = Number(endKmVal !== undefined ? endKmVal : currentRecord.km_end);
       if (kmEnd < kmStart) {
-        throw new BadRequestException('KM final n�o pode ser menor que o KM inicial.');
+        throw new BadRequestException('KM final não pode ser menor que o KM inicial.');
       }
     }
 
     let calculatedHours = currentRecord.total_hours;
-    if (updateData.startAt || updateData.endAt) {
-      const startAt = new Date(updateData.startAt || currentRecord.start_at);
-      const endAt = new Date(updateData.endAt || currentRecord.end_at);
+    const startTimeStr = updateData.startTime ?? updateData.startAt;
+    const endTimeStr = updateData.endTime ?? updateData.endAt;
+    const readingDateStr = updateData.date ?? updateData.readingDate ?? currentRecord.reading_date;
+
+    if (startTimeStr || endTimeStr) {
+      const startAt = new Date(`${readingDateStr}T${startTimeStr || '00:00'}:00`);
+      const endAt = new Date(`${readingDateStr}T${endTimeStr || '00:00'}:00`);
       if (endAt <= startAt) {
         throw new BadRequestException('Data/hora final deve ser maior que a data/hora inicial.');
       }
@@ -207,13 +253,13 @@ export class TachographsService implements OnModuleInit {
     }
 
     const payload: any = {
-      reading_date: updateData.readingDate,
-      start_at: updateData.startAt,
-      end_at: updateData.endAt,
-      km_start: updateData.kmStart ? Number(updateData.kmStart) : undefined,
-      km_end: updateData.kmEnd ? Number(updateData.kmEnd) : undefined,
+      reading_date: updateData.date ?? updateData.readingDate,
+      start_at: startTimeStr,
+      end_at: endTimeStr,
+      km_start: startKmVal !== undefined ? Number(startKmVal) : undefined,
+      km_end: endKmVal !== undefined ? Number(endKmVal) : undefined,
       total_hours: calculatedHours,
-      observations: updateData.observations,
+      observations: updateData.observation ?? updateData.observations,
       status: updateData.status,
       updated_by: actorId,
       updated_at: new Date().toISOString(),
@@ -297,7 +343,7 @@ export class TachographsService implements OnModuleInit {
       });
       return { data: csv, mime: 'text/csv', filename: 'export-tacografos.csv' };
     } else {
-      let html = '<table border="1"><thead><tr><th>ID</th><th>Motorista</th><th>Ve�culo</th><th>Placa</th><th>Data Leitura</th><th>KM Inicial</th><th>KM Final</th><th>KM Rodado</th><th>Horas Dirigidas</th><th>Status</th><th>Observa��es</th></tr></thead><tbody>';
+      let html = '<table border="1"><thead><tr><th>ID</th><th>Motorista</th><th>Veículo</th><th>Placa</th><th>Data Leitura</th><th>KM Inicial</th><th>KM Final</th><th>KM Rodado</th><th>Horas Dirigidas</th><th>Status</th><th>Observações</th></tr></thead><tbody>';
       data.forEach((r: any) => {
         html += `<tr><td>${r.id}</td><td>${r.driver?.name || ''}</td><td>${r.vehicle?.modelo || ''}</td><td>${r.vehicle?.placa || ''}</td><td>${r.reading_date}</td><td>${r.km_start}</td><td>${r.km_end}</td><td>${Number(r.km_end) - Number(r.km_start)}</td><td>${r.total_hours}</td><td>${r.status}</td><td>${r.observations || ''}</td></tr>`;
       });
