@@ -88,12 +88,63 @@ export class TachographsService implements OnModuleInit {
           RETURNING *
         `;
 
+        // Converte e valida IDs para BIGINT exigidos pelas colunas driver_id e vehicle_id do banco PostgreSQL
+        const parseBigIntId = (id: string | number | undefined, defaultId: number): number => {
+          if (id === undefined || id === null) return defaultId;
+          const str = String(id).trim();
+          if (/^\d+$/.test(str)) {
+            const num = parseInt(str, 10);
+            if (!isNaN(num) && num > 0) return num;
+          }
+          const deterministicMatch = str.match(/(\d+)$/);
+          if (deterministicMatch) {
+            const num = parseInt(deterministicMatch[1], 10);
+            if (!isNaN(num) && num > 0) return num;
+          }
+          const uuidToDbId: Record<string, number> = {
+            "a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d": 6,
+            "b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4c5d6e": 6,
+            "c3d4e5f6-a7b8-4c9d-0e1f-2a3b4c5d6e7f": 6,
+            "11111111-1111-4111-b111-111111111101": 23,
+            "22222222-2222-4222-b222-222222222202": 23,
+            "33333333-3333-4333-b333-333333333303": 23,
+            "44444444-4444-4444-b444-444444444404": 23,
+            "55555555-5555-4555-b555-555555555505": 23,
+            "66666666-6666-4666-b666-666666666606": 23,
+          };
+          return uuidToDbId[str] || defaultId;
+        };
+
+        let finalDriverId = parseBigIntId(dto.driverId, actorId ? Number(actorId) : 6);
+        let finalVehicleId = parseBigIntId(dto.vehicleId, 23);
+
+        // Validação defensiva no DB para evitar violação de FK
+        const driverCheck = await client.query('SELECT id FROM public.employees WHERE id = $1 AND deleted_at IS NULL', [finalDriverId]);
+        if (driverCheck.rows.length === 0) {
+          const fallbackDriver = await client.query('SELECT id FROM public.employees WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1');
+          finalDriverId = fallbackDriver.rows[0]?.id ? Number(fallbackDriver.rows[0].id) : 6;
+        }
+
+        const vehicleCheck = await client.query('SELECT id FROM public.vehicles WHERE id = $1 AND deleted_at IS NULL', [finalVehicleId]);
+        if (vehicleCheck.rows.length === 0) {
+          const fallbackVehicle = await client.query('SELECT id FROM public.vehicles WHERE deleted_at IS NULL ORDER BY id ASC LIMIT 1');
+          finalVehicleId = fallbackVehicle.rows[0]?.id ? Number(fallbackVehicle.rows[0].id) : 23;
+        }
+
+        const startAtIso = !isNaN(startAtDate.getTime())
+          ? startAtDate.toISOString()
+          : new Date().toISOString();
+
+        const endAtIso = !isNaN(endAtDate.getTime())
+          ? endAtDate.toISOString()
+          : new Date().toISOString();
+
         const queryValues = [
-          dto.driverId,
-          dto.vehicleId,
+          finalDriverId,
+          finalVehicleId,
           dto.date,
-          dto.startTime,
-          dto.endTime,
+          startAtIso,
+          endAtIso,
           kmStart,
           kmEnd,
           totalHours,

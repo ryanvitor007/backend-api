@@ -17,20 +17,18 @@ import {
  */
 export class CreateTachographDto {
   @ApiProperty({
-    description: 'Identificador único do motorista (UUID)',
-    example: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11',
+    description: 'Identificador do motorista',
+    example: '6',
   })
-  @IsUUID(undefined, { message: 'O driverId deve ser um UUID válido' })
   @IsNotEmpty({ message: 'O driverId é obrigatório' })
-  driverId: string;
+  driverId: string | number;
 
   @ApiProperty({
-    description: 'Identificador único do veículo (UUID)',
-    example: 'b1fbc99-9c0b-4ef8-bb6d-6bb9bd380a22',
+    description: 'Identificador do veículo',
+    example: '23',
   })
-  @IsUUID(undefined, { message: 'O vehicleId deve ser um UUID válido' })
   @IsNotEmpty({ message: 'O vehicleId é obrigatório' })
-  vehicleId: string;
+  vehicleId: string | number;
 
   @ApiProperty({
     description: 'Data de registro no formato ISO 8601 (YYYY-MM-DD)',

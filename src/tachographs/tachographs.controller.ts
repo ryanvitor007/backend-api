@@ -75,7 +75,7 @@ export class TachographsController {
         image: {
           type: 'string',
           format: 'binary',
-          description: 'Foto do disco analogico (JPG, JPEG ou PNG, max. 5MB)',
+          description: 'Foto do disco analogico (JPG, JPEG ou PNG, max. 10MB)',
         },
         driverId: {
           type: 'string',
@@ -134,11 +134,12 @@ export class TachographsController {
       new ParseFilePipe({
         validators: [
           new MaxFileSizeValidator({
-            maxSize: 5 * 1024 * 1024,
-            message: 'O tamanho maximo da imagem deve ser de 5MB.',
+            maxSize: 10 * 1024 * 1024,
+            message: 'O tamanho maximo da imagem deve ser de 10MB.',
           }),
           new FileTypeValidator({
-            fileType: /(jpg|jpeg|png)$/i,
+            fileType: 'image/(png|jpeg|jpg)',
+            skipMagicNumbersValidation: true,
           }),
         ],
       }),
