@@ -171,11 +171,11 @@ export class TachographsController {
     @Req() req?: any,
   ) {
     const user = req.user;
-    const resolvedDriverId = user.role === 'Motorista' ? user.userId : (driverId ? +driverId : undefined);
+    const resolvedDriverId = user.role === 'Motorista' ? user.userId : (driverId || undefined);
 
     const filters = {
       driverId: resolvedDriverId,
-      vehicleId: vehicleId ? +vehicleId : undefined,
+      vehicleId: vehicleId || undefined,
       status,
       startDate,
       endDate,
@@ -205,8 +205,8 @@ export class TachographsController {
     @Query('endDate') endDate?: string,
   ) {
     const filters = {
-      driverId: driverId ? +driverId : undefined,
-      vehicleId: vehicleId ? +vehicleId : undefined,
+      driverId: driverId || undefined,
+      vehicleId: vehicleId || undefined,
       status,
       startDate,
       endDate,

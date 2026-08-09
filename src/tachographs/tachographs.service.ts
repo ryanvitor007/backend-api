@@ -221,7 +221,7 @@ export class TachographsService implements OnModuleInit {
   ) {
     let query = this.supabase
       .from('tachograph_records')
-      .select('*, driver:employees(name), vehicle:vehicles(placa, modelo)', { count: 'exact' })
+      .select('*, driver:employees!driver_id(name), vehicle:vehicles!vehicle_id(placa, modelo)', { count: 'exact' })
       .is('deleted_at', null);
 
     if (filters.driverId) query = query.eq('driver_id', filters.driverId);
@@ -253,7 +253,7 @@ export class TachographsService implements OnModuleInit {
   async findOne(id: string) {
     const { data, error } = await this.supabase
       .from('tachograph_records')
-      .select('*, driver:employees(name), vehicle:vehicles(placa, modelo)')
+      .select('*, driver:employees!driver_id(name), vehicle:vehicles!vehicle_id(placa, modelo)')
       .eq('id', id)
       .is('deleted_at', null)
       .single();
