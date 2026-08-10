@@ -9,9 +9,10 @@ import { StorageService } from '../storage/storage.service';
  * Interface para a resposta estruturada exigida pelo modelo Maker-Checker
  */
 export interface TachographAiAnalysisResult {
-  status: 'COMPLIANT' | 'ALERT';
+  reasoning_step_by_step: string;
+  max_speed_detected_kmh: number;
   infractions: string[];
-  analysis_summary: string;
+  status: 'COMPLIANT' | 'ALERT';
 }
 
 @Injectable()
@@ -113,19 +114,21 @@ export class TachographsAiService implements OnModuleInit {
       const systemPrompt = `Você é um Auditor de Frotas Sênior especialista em análise visual e regulatória de discos de tacógrafo analógico (Resolução CONTRAN e Legislação de Trânsito Brasileira).
 Seu papel é atuar como o validador 'Checker' no modelo Maker-Checker.
 
-Regras de Auditoria:
-1. Avalie a imagem do disco polar identificando a linha tracejada de velocidade (verifique picos contínuos acima de 80 km/h).
-2. Valida o tempo de condução e períodos de descanso/parada do veículo na linha de tempo/jornada.
-3. Compare o comportamento traçado no disco com os dados declarados pelo motorista.
+Contexto Geométrico:
+A linha de velocidade é a mais externa e tem oscilações constantes. A velocidade de 80km/h geralmente possui uma linha vermelha circular ou marcação de referência. O tempo está no círculo interno.
+
+Passo a Passo (Chain of Thought):
+Antes de dar o veredito, você DEVE varrer o disco visualmente seguindo o sentido horário, do horário inicial ao final. Identifique ativamente onde a agulha de velocidade tem picos agudos e cruza a linha de limite. Compare o comportamento traçado no disco com os dados declarados pelo motorista.
 
 Instrução Importante de Formato:
 Sua resposta DEVE SER EXCLUSIVAMENTE um objeto JSON válido, sem texto explicativo adicional, sem marcações Markdown de código (não inclua \`\`\`json ou qualquer outra formatação).
 
 Estrutura JSON Obrigatória:
 {
-  "status": "COMPLIANT" | "ALERT",
+  "reasoning_step_by_step": "Sua análise detalhada varrendo o disco hora a hora...",
+  "max_speed_detected_kmh": numero,
   "infractions": ["Descrição detalhada de cada infração encontrada, se houver"],
-  "analysis_summary": "Resumo técnico objetivo da auditoria da imagem e dos dados"
+  "status": "COMPLIANT" | "ALERT"
 }`;
 
       const driverName = record.driver?.name || 'Não identificado';
@@ -142,7 +145,7 @@ Estrutura JSON Obrigatória:
 - KM Final: ${record.km_end ?? 'N/A'}
 - Observações do Motorista: ${record.observations || 'Nenhuma'}
 
-Responda rigorosamente com o JSON contendo status, infractions e analysis_summary.`;
+Responda rigorosamente com o JSON contendo reasoning_step_by_step, max_speed_detected_kmh, infractions e status.`;
 
       // 4. Chamada para a API Anthropic Claude 3.5 Sonnet
       const response = await this.anthropic.messages.create({
@@ -179,7 +182,7 @@ Responda rigorosamente com o JSON contendo status, infractions e analysis_summar
       // 6. Atualização do registro no Supabase
       const newStatus = parsedAnalysis.status === 'COMPLIANT' ? 'COMPLIANT' : 'ALERT';
       
-      const auditLogHeader = `[Auditoria IA - ${newStatus}]: ${parsedAnalysis.analysis_summary}`;
+      const auditLogHeader = `[Auditoria IA - ${newStatus}]\nPasso a Passo: ${parsedAnalysis.reasoning_step_by_step}\nVelocidade Máx. IA: ${parsedAnalysis.max_speed_detected_kmh} km/h`;
       const infractionsText = parsedAnalysis.infractions.length > 0
         ? `\nInfrações Detectadas: ${parsedAnalysis.infractions.join('; ')}`
         : '';
@@ -248,16 +251,18 @@ Responda rigorosamente com o JSON contendo status, infractions e analysis_summar
       const parsed = JSON.parse(cleaned);
 
       return {
-        status: parsed.status === 'COMPLIANT' ? 'COMPLIANT' : 'ALERT',
+        reasoning_step_by_step: parsed.reasoning_step_by_step || 'Análise realizada pela IA.',
+        max_speed_detected_kmh: Number(parsed.max_speed_detected_kmh) || 0,
         infractions: Array.isArray(parsed.infractions) ? parsed.infractions : [],
-        analysis_summary: parsed.analysis_summary || 'Análise realizada pela IA.',
+        status: parsed.status === 'COMPLIANT' ? 'COMPLIANT' : 'ALERT',
       };
     } catch (error) {
       this.logger.error(`Falha ao realizar parse do JSON retornado pelo Claude: ${responseText}`);
       return {
-        status: 'ALERT',
+        reasoning_step_by_step: 'Inconsistência na resposta da IA durante a auditoria automática.',
+        max_speed_detected_kmh: 0,
         infractions: ['Erro ao interpretar retorno estruturado da auditoria automática.'],
-        analysis_summary: 'Inconsistência na resposta da IA durante a auditoria automática.',
+        status: 'ALERT',
       };
     }
   }
