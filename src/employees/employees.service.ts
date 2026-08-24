@@ -72,11 +72,12 @@ export class EmployeesService implements OnModuleInit {
   }
 
   async findByEmail(email: string) {
-    console.log(`[EmployeesService] findByEmail called for email: ${email}`);
+    const normalizedEmail = email.toLowerCase().trim();
+    console.log(`[EmployeesService] findByEmail called for email: ${normalizedEmail}`);
     const { data: user, error } = await this.supabase
       .from('employees')
       .select('*')
-      .eq('email', email)
+      .eq('email', normalizedEmail)
       .single();
 
     if (error) {
